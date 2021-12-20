@@ -292,6 +292,15 @@ def merge_text_changes(result, s1, s2):
         elif 'curr' in c:
             result['insert'].append(c['curr'])
 
+def get_diff(prev_wikitext, curr_wikitext):
+    t1, sections1 = sec_node_tree(mwparserfromhell.parse(prev_wikitext))
+    t2, sections2 = sec_node_tree(mwparserfromhell.parse(curr_wikitext))
+    d = Differ(t1, t2)
+    diff = d.get_corresponding_nodes()
+    detect_moves(diff)
+    formatted_diff = format_result(diff, sections1, sections2)
+    merge_text_changes(formatted_diff, sections1, sections2)
+    return formatted_diff
 
 class Differ:
 
