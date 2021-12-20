@@ -2,8 +2,8 @@ import copy
 import json
 
 import mwparserfromhell
-
-from context import td  # tree-differ
+from context import nd
+from context import td
 
 # Basic wikitext to play with that has most of the things we're interested in (image, categories, templates, etc.)
 # Source: https://en.wikipedia.org/wiki/Karl_Aigen
@@ -60,62 +60,12 @@ def get_diff(prev_wt, curr_wt):
     td.merge_text_changes(formatted_diff, sections1, sections2)
     return formatted_diff
 
-def check_change_counts(diff, expected_changes):
-    diff = copy.deepcopy(diff)
-    for (action, section, etype) in expected_changes:
-        found = False
-        for idx in range(len(diff[action])-1, -1, -1):
-            chg = None
-            if action == 'insert' or action == 'remove':
-                chg = diff[action][idx]
-            elif action == 'change' or action == 'move':
-                chg = diff[action][idx]['prev']
-            if chg['type'] == etype and chg['section'] == section:
-                diff[action].pop(idx)
-                found = True
-                break
-        assert found, f'Missing {action}: {etype} in {section}'
-    for action in ['remove', 'insert', 'change', 'move']:
-        assert not diff[action], f'Additional {action}: {json.dumps(diff[action], indent=2)}'
-
-
 def test_insert_category():
     curr_wikitext = prev_wikitext.replace('[[Category:Artists from Olomouc]]\n',
                                           '[[Category:Artists from Olomouc]]\n[[Category:TEST CATEGORY]]',
                                           1)
-    expected_changes = [('insert', 'S#5: External links (L2)', 'Category')]
+    expected_changes = {'Category':{'insert':1}}
     diff = get_diff(prev_wikitext, curr_wikitext)
-    check_change_counts(diff, expected_changes)
+    assert expected_changes == nd.get_diff_count(diff)
 
-def test_insert_link():
-    curr_wikitext = prev_wikitext.replace('He was a pupil of the Olomouc painter',
-                                          'He was a [[pupil]] of the Olomouc painter',
-                                          1)
-    expected_changes = [('insert', 'S#2: Life (L2)', 'Wikilink')]
-    diff = get_diff(prev_wikitext, curr_wikitext)
-    check_change_counts(diff, expected_changes)
 
-def test_move_template():
-    curr_wikitext = prev_wikitext.replace('{{Austria-painter-stub}}',
-                                          '',
-                                          1)
-    curr_wikitext = '{{Austria-painter-stub}}' + curr_wikitext
-    expected_changes = [('move', 'S#5: External links (L2)', 'Template')]
-    diff = get_diff(prev_wikitext, curr_wikitext)
-    check_change_counts(diff, expected_changes)
-
-def test_change_heading():
-    curr_wikitext = prev_wikitext.replace('===Works===',
-                                          '===NotWorks===',
-                                          1)
-    expected_changes = [('change', 'S#3: Works (L3)', 'Heading')]
-    diff = get_diff(prev_wikitext, curr_wikitext)
-    check_change_counts(diff, expected_changes)
-
-def test_remove_formatting():
-    curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen'''",
-                                          "Karl Josef Aigen",
-                                          1)
-    expected_changes = [('remove', 'S#1: Lede (L2)', 'Tag')]
-    diff = get_diff(prev_wikitext, curr_wikitext)
-    check_change_counts(diff, expected_changes)
