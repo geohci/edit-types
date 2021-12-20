@@ -1,9 +1,11 @@
 import time
 
-from anytree import Node, RenderTree, PostOrderIter, PreOrderIter, NodeMixin
+from anytree import PostOrderIter, NodeMixin
 from anytree.util import leftsibling
 import mwparserfromhell
 
+MEDIA_PREFIXES = {'en':['File', 'Image', 'Media']}
+CAT_PREFIXES = {'en':['Category']}
 
 class OrderedNode(NodeMixin):  # Add Node feature
     def __init__(self, name, ntype='Text', text_hash=None, idx=-1, text='', char_offset=-1, parent=None, children=None):
@@ -31,12 +33,19 @@ class OrderedNode(NodeMixin):  # Add Node feature
         return self.idx if self.is_leaf else self.children[0].leftmost()
 
 
-def simple_node_class(node):
+def simple_node_class(node, lang='en'):
     """e.g., "<class 'mwparserfromhell.nodes.heading.Heading'>" -> "Heading"."""
     if type(node) == str:
         return 'Text'
     else:
-        return str(type(node)).split('.')[-1].split("'")[0]
+        nc = str(type(node)).split('.')[-1].split("'")[0]
+        if nc == 'Wikilink':
+            n_prefix = node.title.split(':')[0]
+            if n_prefix in MEDIA_PREFIXES.get(lang, MEDIA_PREFIXES['en']):
+                nc = 'Media'
+            elif n_prefix in CAT_PREFIXES.get(lang, CAT_PREFIXES['en']):
+                nc = 'Category'
+        return nc
 
 def sec_to_name(s, idx):
     """Converts a section to an interpretible name."""
@@ -51,6 +60,7 @@ def node_to_name(n):
     else:
         return f'{simple_node_class(n)}: {n_txt}'
 
+
 def extract_text(node):
     """Extract what text would be displayed from any node."""
     ntype = simple_node_class(node)
@@ -63,10 +73,11 @@ def extract_text(node):
             return str(node.title)
     elif ntype == 'ExternalLink' and node.title:
         return str(node.title)
-    elif ntype == 'Tag' and node.tag != 'ref':
-        return str(node.contents)
-    else:  # Heading, Table, Template, HTMLEntity, Comment, Argument
+    elif ntype == 'Tag':
+        return node.contents.strip_code()
+    else:  # Heading, Template, Comment, Argument
         return ''
+
 
 def sec_node_tree(wt):
     """Build tree of document nodes from Wikipedia article.
