@@ -58,47 +58,35 @@ def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
             if len(set(curr_temp_dict.items()) - set(prev_temp_dict.items())) > 0:
                 return True, 'Template'
 
-        if node_type == 'Wikilink':
-            # TODO: this used to be just the first link, but that triggered later errors in .copy and filterLinksByNS.
-            #  Revisit if just keep the first link or not
-            prev_filtered_wikilink = prev_parsed_text.filter_wikilinks(recursive=False)
-            curr_filtered_wikilink = curr_parsed_text.filter_wikilinks(recursive=False)
+        
+        if node_type == 'Media':
+            prev_media = prev_parsed_text.filter_wikilinks(recursive=False)
+            curr_media = curr_parsed_text.filter_wikilinks(recursive=False)
 
-            #Check if wikilink that is not image or category changes
-            prev_wikilink_copy = prev_filtered_wikilink.copy()
-            curr_wikilink_copy = curr_filtered_wikilink.copy()
+            if len(prev_media) > 0 and len(curr_media) > 0:
+                if prev_media[0].text != curr_media[0].text or \
+                    prev_media[0].title != curr_media[0].title:
+                    return True, 'Media'
 
-            prev_wikilink = filterLinksByNs(prev_wikilink_copy, [0])
-            curr_wikilink = filterLinksByNs(curr_wikilink_copy, [0])
-
-            if len(prev_wikilink) > 0 and len(curr_wikilink) > 0:
-                if prev_wikilink[0].text != curr_wikilink[0].text or \
-                    prev_wikilink[0].title != curr_wikilink[0].title:
-                    return True, 'Wikilink'
-
-             #Check if category changes
-            prev_cat_copy = prev_filtered_wikilink.copy()
-            curr_cat_copy = curr_filtered_wikilink.copy()
-
-            prev_cat = filterLinksByNs(prev_cat_copy, [14])
-            curr_cat = filterLinksByNs(curr_cat_copy, [14])
-
+        if node_type == 'Category':
+            prev_cat = prev_parsed_text.filter_wikilinks(recursive=False)
+            curr_cat = prev_parsed_text.filter_wikilinks(recursive=False)
+            
             if len(prev_cat) > 0 and len(curr_cat) > 0:
                 if prev_cat[0].text != curr_cat[0].text or \
                     prev_cat[0].title != curr_cat[0].title:
                     return True, 'Category'
 
-             #Check if image changes
-            prev_image_copy = prev_filtered_wikilink.copy()
-            curr_image_copy = prev_filtered_wikilink.copy()
+        if node_type == 'Wikilink':
+            # TODO: this used to be just the first link, but that triggered later errors in .copy and filterLinksByNS.
+            #  Revisit if just keep the first link or not
+            prev_wikilink = prev_parsed_text.filter_wikilinks(recursive=False)
+            curr_wikilink = curr_parsed_text.filter_wikilinks(recursive=False)
 
-            prev_image = filterLinksByNs(prev_image_copy, [6])
-            curr_image = filterLinksByNs(curr_image_copy, [6])
-
-            if len(prev_image) > 0 and len(curr_image) > 0:
-                if prev_image[0].text != curr_image[0].text or \
-                    prev_image[0].title != curr_image[0].title:
-                    return True, 'Image'
+            if len(prev_wikilink) > 0 and len(curr_wikilink) > 0:
+                if prev_wikilink[0].text != curr_wikilink[0].text or \
+                    prev_wikilink[0].title != curr_wikilink[0].title:
+                    return True, 'Wikilink'
 
         if node_type == 'Text':
             prev_filtered_text = prev_parsed_text.filter_text(recursive=False)[0]
@@ -214,25 +202,19 @@ def is_edit_type(wikitext, node_type):
             return True, section[0], 'Section'
 
     elif node_type == 'Wikilink':
-        link = parsed_text.filter_wikilinks(recursive=False)
-        # Check if edit type is a category or image or inlink
-        if len(link) > 0:
-            # Get copy of list
-            wikilink_copy = link.copy()
-            wikilink = filterLinksByNs(wikilink_copy, [0])
+        wikilink = parsed_text.filter_wikilinks(recursive=False)
+        if len(wikilink) > 0:
+            return True, wikilink[0], 'Wikilink'
 
-            cat_copy = link.copy()
-            cat = filterLinksByNs(cat_copy, [14])
+    elif node_type == 'Media':
+        media = parsed_text.filter_wikilinks(recursive=False)
+        if len(media) > 0:
+            return True, media[0], 'Media'
 
-            image_copy = link.copy()
-            image = filterLinksByNs(image_copy, [6])
-
-            if len(cat) > 0:
-                return True, cat[0], 'Category'
-            if len(image) > 0:
-                return True, image[0], 'Image'
-            if len(wikilink) > 0:
-                return True, wikilink[0], 'Wikilink'
+    elif node_type == 'Category':
+        category = parsed_text.filter_wikilinks(recursive=False)
+        if len(category) > 0:
+            return True, category[0], 'Category'
 
     elif node_type == 'ExternalLink':
         external_link = parsed_text.filter_external_links(recursive=False)
