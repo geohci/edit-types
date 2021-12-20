@@ -1,35 +1,6 @@
 import mwparserfromhell as mw
 import re
 
-NAMESPACE_PREFIXES = {'File': 6, 'Image': 6, 'Category': 14}
-
-def filterLinksByNs(links, keep_ns):
-    """ Filters wikilinks by namespaces
-
-    Parameters
-    ----------
-    links : list
-        List of Wikilinks
-    keep_ns: list
-        List of namespaces to filter by
-
-    Returns
-    -------
-    links
-        Filtered link
-    """
-
-    for i in range(len(links) - 1, -1, -1):
-        link_ns = 0
-        if ':' in links[i]:
-            prefix = links[i].split(':')[0].replace(' ', '_').replace('[[', '')
-            if prefix in NAMESPACE_PREFIXES:
-                link_ns = NAMESPACE_PREFIXES[prefix]
-        if link_ns not in keep_ns:
-            links.pop(i)
-    return links
-
-
 def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
     """ Checks if a change occurs in wikitexts
 
