@@ -562,18 +562,18 @@ def sec_to_name(s, idx):
     return f'S#{idx}: {s.nodes[0].title} (L{s.nodes[0].level})'
 
 
-def node_to_name(n):
+def node_to_name(n, lang='en'):
     """Converts a mwparserfromhell node to an interpretible name."""
     n_txt = n.replace("\n", "\\n")
     if len(n_txt) > 13:
-        return f'{simple_node_class(n)}: {n_txt[:10]}...'
+        return f'{simple_node_class(n, lang)}: {n_txt[:10]}...'
     else:
-        return f'{simple_node_class(n)}: {n_txt}'
+        return f'{simple_node_class(n, lang)}: {n_txt}'
 
 
-def extract_text(node):
+def extract_text(node, lang='en'):
     """Extract what text would be displayed from any node."""
-    ntype = simple_node_class(node)
+    ntype = simple_node_class(node, lang)
     if ntype == 'Text' or ntype == 'HTMLEntity':
         return str(node)
     elif ntype == 'Wikilink':
@@ -585,11 +585,11 @@ def extract_text(node):
         return str(node.title)
     elif ntype == 'Tag':
         return node.contents.strip_code()
-    else:  # Heading, Template, Comment, Argument
+    else:  # Heading, Template, Comment, Argument, Category, Media
         return ''
 
 
-def sec_node_tree(wt):
+def sec_node_tree(wt, lang='en'):
     """Build tree of document nodes from Wikipedia article.
 
     This approach builds a tree with an artificial 'root' node on the 1st level,
@@ -603,16 +603,16 @@ def sec_node_tree(wt):
             sec_hash = sec_to_name(s, sidx)
             sec_text = str(s.nodes[0])
             for n in s.nodes[1:]:
-                if simple_node_class(n) == 'Heading':
+                if simple_node_class(n, lang) == 'Heading':
                     break
                 sec_text += str(n)
             secname_to_text[sec_hash] = sec_text
             s_node = OrderedNode(sec_hash, ntype="Heading", text=s.nodes[0], text_hash=sec_text, char_offset=0, parent=root)
             char_offset = len(s_node.text)
             for n in s.nodes[1:]:
-                if simple_node_class(n) == 'Heading':
+                if simple_node_class(n, lang) == 'Heading':
                     break
-                n_node = OrderedNode(node_to_name(n), ntype=simple_node_class(n), text=n, char_offset=char_offset, parent=s_node)
+                n_node = OrderedNode(node_to_name(n, lang), ntype=simple_node_class(n, lang), text=n, char_offset=char_offset, parent=s_node)
                 char_offset += len(str(n))
     return root, secname_to_text
 
@@ -731,7 +731,7 @@ def section_mapping(result, s1, s2):
     return p_to_c, c_to_p
 
 
-def merge_text_changes(result, s1, s2):
+def merge_text_changes(result, s1, s2, lang='en'):
     """Replace isolated text changes with section-level text changes."""
     p_to_c, c_to_p = section_mapping(result, s1, s2)
     changes = []
@@ -743,14 +743,14 @@ def merge_text_changes(result, s1, s2):
             prev_sec = r['section']
             if prev_sec not in prev_secs_checked:
                 prev_secs_checked.add(prev_sec)
-                prev_text = ''.join([extract_text(n) for n in mwparserfromhell.parse(s1[prev_sec]).nodes])
+                prev_text = ''.join([extract_text(n, lang) for n in mwparserfromhell.parse(s1[prev_sec]).nodes])
                 curr_sec = p_to_c[prev_sec]
                 curr_secs_checked.add(curr_sec)
                 if curr_sec is None:
                     changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
                                              'section': prev_sec, 'offset': 0}})
                 else:
-                    curr_text = ''.join([extract_text(n) for n in mwparserfromhell.parse(s2[curr_sec]).nodes])
+                    curr_text = ''.join([extract_text(n, lang) for n in mwparserfromhell.parse(s2[curr_sec]).nodes])
                     if prev_text != curr_text:
                         changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
                                                  'section': prev_sec, 'offset': 0},
@@ -763,14 +763,14 @@ def merge_text_changes(result, s1, s2):
             curr_sec = i['section']
             if curr_sec not in curr_secs_checked:
                 curr_secs_checked.add(curr_sec)
-                curr_text = ''.join([extract_text(n) for n in mwparserfromhell.parse(s2[curr_sec]).nodes])
+                curr_text = ''.join([extract_text(n, lang) for n in mwparserfromhell.parse(s2[curr_sec]).nodes])
                 prev_sec = c_to_p[curr_sec]
                 prev_secs_checked.add(prev_sec)
                 if prev_sec is None:
                     changes.append({'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
                                              'section': curr_sec, 'offset': 0}})
                 else:
-                    prev_text = ''.join([extract_text(n) for n in mwparserfromhell.parse(s1[prev_sec]).nodes])
+                    prev_text = ''.join([extract_text(n, lang) for n in mwparserfromhell.parse(s1[prev_sec]).nodes])
                     if prev_text != curr_text:
                         changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
                                                  'section': prev_sec, 'offset': 0},
@@ -784,9 +784,9 @@ def merge_text_changes(result, s1, s2):
             prev_sec = pn['section']
             if prev_sec not in prev_secs_checked:
                 prev_secs_checked.add(prev_sec)
-                prev_text = ''.join([extract_text(n) for n in mwparserfromhell.parse(s1[prev_sec]).nodes])
+                prev_text = ''.join([extract_text(n, lang) for n in mwparserfromhell.parse(s1[prev_sec]).nodes])
                 curr_sec = cn['section']
-                curr_text = ''.join([extract_text(n) for n in mwparserfromhell.parse(s2[curr_sec]).nodes])
+                curr_text = ''.join([extract_text(n, lang) for n in mwparserfromhell.parse(s2[curr_sec]).nodes])
                 if prev_text != curr_text:
                     changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
                                              'section': prev_sec, 'offset': 0},
@@ -802,14 +802,14 @@ def merge_text_changes(result, s1, s2):
         elif 'curr' in c:
             result['insert'].append(c['curr'])
 
-def get_diff(prev_wikitext, curr_wikitext):
-    t1, sections1 = sec_node_tree(mwparserfromhell.parse(prev_wikitext))
-    t2, sections2 = sec_node_tree(mwparserfromhell.parse(curr_wikitext))
+def get_diff(prev_wikitext, curr_wikitext, lang='en'):
+    t1, sections1 = sec_node_tree(mwparserfromhell.parse(prev_wikitext), lang)
+    t2, sections2 = sec_node_tree(mwparserfromhell.parse(curr_wikitext), lang)
     d = Differ(t1, t2)
     diff = d.get_corresponding_nodes()
     detect_moves(diff)
     formatted_diff = format_result(diff, sections1, sections2)
-    merge_text_changes(formatted_diff, sections1, sections2)
+    merge_text_changes(formatted_diff, sections1, sections2, lang)
     return formatted_diff
 
 class Differ:
