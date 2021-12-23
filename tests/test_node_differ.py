@@ -61,4 +61,11 @@ def test_insert_category():
     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
     assert expected_changes == nd.get_diff_count(diff)
 
+def test_change_category():
+    curr_wikitext = prev_wikitext.replace('[[Category:Artists from Olomouc]]',
+                                          '[[Category:Artists from somewhere else]]',
+                                          1)
+    expected_changes = {'Category':{'change':1}}
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+    assert expected_changes == nd.get_diff_count(diff)
 
