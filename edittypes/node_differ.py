@@ -41,8 +41,8 @@ def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
 
         if node_type == 'Category':
             prev_cat = prev_parsed_text.filter_wikilinks(recursive=False)
-            curr_cat = prev_parsed_text.filter_wikilinks(recursive=False)
-            
+            curr_cat = curr_parsed_text.filter_wikilinks(recursive=False)
+
             if len(prev_cat) > 0 and len(curr_cat) > 0:
                 if prev_cat[0].text != curr_cat[0].text or \
                     prev_cat[0].title != curr_cat[0].title:
