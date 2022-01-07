@@ -48,17 +48,10 @@ The [[Österreichische Galerie Belvedere|Gallery of the Belvedere]] in Vienna ha
 {{Austria-painter-stub}}
 """
 
-def get_diff(prev_wt, curr_wt):
+def get_diff(prev_wt, curr_wt, lang):
     prev_wt = "==Lede==" + prev_wt
     curr_wt = "==Lede==" + curr_wt
-    t1, sections1 = td.sec_node_tree(mwparserfromhell.parse(prev_wt))
-    t2, sections2 = td.sec_node_tree(mwparserfromhell.parse(curr_wt))
-    d = td.Differ(t1, t2)
-    diff = d.get_corresponding_nodes()
-    td.detect_moves(diff)
-    formatted_diff = td.format_result(diff, sections1, sections2)
-    td.merge_text_changes(formatted_diff, sections1, sections2)
-    return formatted_diff
+    return td.get_diff(prev_wt, curr_wt, lang)
 
 def check_change_counts(diff, expected_changes):
     diff = copy.deepcopy(diff)
@@ -84,7 +77,7 @@ def test_insert_category():
                                           '[[Category:Artists from Olomouc]]\n[[Category:TEST CATEGORY]]',
                                           1)
     expected_changes = [('insert', 'S#5: External links (L2)', 'Category')]
-    diff = get_diff(prev_wikitext, curr_wikitext)
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
     check_change_counts(diff, expected_changes)
 
 def test_insert_link():
@@ -92,7 +85,7 @@ def test_insert_link():
                                           'He was a [[pupil]] of the Olomouc painter',
                                           1)
     expected_changes = [('insert', 'S#2: Life (L2)', 'Wikilink')]
-    diff = get_diff(prev_wikitext, curr_wikitext)
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
     check_change_counts(diff, expected_changes)
 
 def test_move_template():
@@ -101,7 +94,7 @@ def test_move_template():
                                           1)
     curr_wikitext = '{{Austria-painter-stub}}' + curr_wikitext
     expected_changes = [('move', 'S#5: External links (L2)', 'Template')]
-    diff = get_diff(prev_wikitext, curr_wikitext)
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
     check_change_counts(diff, expected_changes)
 
 def test_change_heading():
@@ -109,7 +102,7 @@ def test_change_heading():
                                           '===NotWorks===',
                                           1)
     expected_changes = [('change', 'S#3: Works (L3)', 'Heading')]
-    diff = get_diff(prev_wikitext, curr_wikitext)
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
     check_change_counts(diff, expected_changes)
 
 def test_remove_formatting():
@@ -117,5 +110,5 @@ def test_remove_formatting():
                                           "Karl Josef Aigen",
                                           1)
     expected_changes = [('remove', 'S#1: Lede (L2)', 'Tag')]
-    diff = get_diff(prev_wikitext, curr_wikitext)
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
     check_change_counts(diff, expected_changes)
