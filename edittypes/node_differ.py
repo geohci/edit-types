@@ -41,8 +41,8 @@ def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
 
         if node_type == 'Category':
             prev_cat = prev_parsed_text.filter_wikilinks(recursive=False)
-            curr_cat = prev_parsed_text.filter_wikilinks(recursive=False)
-            
+            curr_cat = curr_parsed_text.filter_wikilinks(recursive=False)
+
             if len(prev_cat) > 0 and len(curr_cat) > 0:
                 if prev_cat[0].text != curr_cat[0].text or \
                     prev_cat[0].title != curr_cat[0].title:
@@ -91,8 +91,8 @@ def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
 
 
         if node_type == 'Heading':
-            prev_filtered_section = prev_parsed_text.filter_heading(recursive=False)[0]
-            curr_filtered_section = curr_parsed_text.filter_heading(recursive=False)[0]
+            prev_filtered_section = prev_parsed_text.filter_headings(recursive=False)[0]
+            curr_filtered_section = curr_parsed_text.filter_headings(recursive=False)[0]
 
             if prev_filtered_section.title != curr_filtered_section.title:
                 return True, 'Heading'
@@ -166,7 +166,7 @@ def is_edit_type(wikitext, node_type):
             return True, templates[0], 'Template'
 
     elif node_type == 'Heading':
-        section = parsed_text.filter_heading(recursive=False)
+        section = parsed_text.filter_headings(recursive=False)
         if len(section) > 0:
             return True, section[0], 'Section'
 
