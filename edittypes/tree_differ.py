@@ -518,7 +518,7 @@ CAT_ALIASES = {
 }
 
 class OrderedNode(NodeMixin):  # Add Node feature
-    def __init__(self, name, ntype='Text', text_hash=None, idx=-1, text='', char_offset=-1, parent=None, children=None):
+    def __init__(self, name, ntype='Text', text_hash=None, idx=-1, text='', char_offset=-1, section=None, parent=None, children=None):
         super(OrderedNode, self).__init__()
         self.name = name  # For debugging purposes
         self.ntype = ntype  # Different node types can be treated differently when computing equality
@@ -535,6 +535,7 @@ class OrderedNode(NodeMixin):  # Add Node feature
             self.text_hash = hash(str(text_hash))
         self.idx = idx  # Used by Differ -- Post order on tree from 0...# nodes - 1
         self.char_offset = char_offset  # make it easy to find node in section text
+        self.section = section  # section that the node is a part of -- useful for formatting final diff
         self.parent = parent
         if children:
             self.children = children
@@ -600,34 +601,57 @@ def sec_node_tree(wt, lang='en'):
     """
     root = OrderedNode('root', ntype="Article")
     secname_to_text = {}
-    for sidx, s in enumerate(wt.get_sections()):
+    for sidx, s in enumerate(wt.get_sections(flat=True)):
         if s:
             sec_hash = sec_to_name(s, sidx)
-            sec_text = str(s.nodes[0])
-            for n in s.nodes[1:]:
-                if simple_node_class(n, lang) == 'Heading':
-                    break
-                sec_text += str(n)
+            sec_text = ''.join([str(n) for n in s.nodes])
             secname_to_text[sec_hash] = sec_text
-            s_node = OrderedNode(sec_hash, ntype="Heading", text=s.nodes[0], text_hash=sec_text, char_offset=0, parent=root)
+            s_node = OrderedNode(sec_hash, ntype="Heading", text=s.nodes[0], text_hash=sec_text, char_offset=0,
+                                 section=sec_hash, parent=root)
             char_offset = len(s_node.text)
             for n in s.nodes[1:]:
-                if simple_node_class(n, lang) == 'Heading':
-                    break
-                n_node = OrderedNode(node_to_name(n, lang), ntype=simple_node_class(n, lang), text=n, char_offset=char_offset, parent=s_node)
+                n_node = OrderedNode(node_to_name(n, lang), ntype=simple_node_class(n, lang), text=n, char_offset=char_offset,
+                                     section=s_node.name, parent=s_node)
                 char_offset += len(str(n))
     return root, secname_to_text
 
+
+def rec_node_append(node, lang='en'):
+    """Build tree of document nodes by recursing within a single wikitext node.
+
+    This approach starts with a single wikitext node -- e.g., a single Tag node with nested link nodes etc.:
+    <ref>{{cite web|title=[[Belveddere Gallery]]|url=http://digital.belvedere.at|publisher=Digitales Belvedere}}</ref>
+    and splits it into its component pieces to then identify what has changed between revisions.
+
+    Example above would take a Reference node as input and build the following tree (in-place):
+    <--rest-of-tree-- Reference <--child-of-- Template (cite web) <--child-of-- WikiLink (Belveddere Gallery)
+                                                            ^--------child-of-- External Link (http://digital...)
+    """
+    wt = mwparserfromhell.parse(node.text)
+    root = node
+    parent_node = root
+    base_offset = root.char_offset
+    parent_ranges = [(0, len(wt), root)]  # (start idx of node, end idx of node, node object)
+    for idx, nn in enumerate(wt.ifilter(recursive=True)):
+        if idx == 0:
+            continue  # skip root node -- already set
+        ntype = simple_node_class(nn, lang)
+        if ntype != 'Text':  # skip Text nodes -- that's the standard content of the root node
+            node_start = wt.find(str(nn), parent_ranges[0][0])  # start looking from the start of the latest node
+            # identify direct parent of node
+            for parent in parent_ranges:
+                if node_start < parent[1]:  # falls within parent range
+                    parent_node = parent[2]
+                    break
+            nn_node = OrderedNode(node_to_name(nn, lang=lang), ntype=ntype, text=nn, char_offset=base_offset+node_start, section=root.section, parent=parent_node)
+            parent_ranges.insert(0, (node_start, node_start + len(nn), nn_node))
+
 def format_diff(node):
-    """Convert OrderedNode object into simple dictionary."""
     result = {'name':node.name,
               'type':node.ntype,
               'text':node.text,
-              'offset':node.char_offset}
-    if node.ntype == 'Heading':
-        result['section'] = node.name
-    else:
-        result['section'] = node.parent.name
+              'offset':node.char_offset,
+              'section':node.section}
     return result
 
 
@@ -804,6 +828,7 @@ def merge_text_changes(result, s1, s2, lang='en'):
         elif 'curr' in c:
             result['insert'].append(c['curr'])
 
+
 def get_diff(prev_wikitext, curr_wikitext, lang='en'):
     t1, sections1 = sec_node_tree(mwparserfromhell.parse(prev_wikitext), lang)
     t2, sections2 = sec_node_tree(mwparserfromhell.parse(curr_wikitext), lang)
@@ -816,14 +841,16 @@ def get_diff(prev_wikitext, curr_wikitext, lang='en'):
 
 class Differ:
 
-    def __init__(self, t1, t2, timeout=2):
-        self.t1 = [n for n in PostOrderIter(t1)]
-        self.t2 = [n for n in PostOrderIter(t2)]
-        self.prune_trees()
-        for i, n in enumerate(self.t1):
+    def __init__(self, t1, t2, timeout=2, expand_nodes=False):
+        self.prune_trees(t1, t2, expand_nodes)
+        self.t1 = []
+        self.t2 = []
+        for i,n in enumerate(PostOrderIter(t1)):
             n.idx = i
-        for i, n in enumerate(self.t2):
+            self.t1.append(n)
+        for i,n in enumerate(PostOrderIter(t2)):
             n.idx = i
+            self.t2.append(n)
         self.timeout = time.time() + timeout
         self.ins_cost = 1
         self.rem_cost = 1
@@ -862,33 +889,35 @@ class Differ:
             self.transactions[i] = {}
         self.populate_transactions(transactions)
 
-    def prune_trees(self):
-        """Quick heuristic preprocessing to reduce tree differ time.
+    def prune_trees(self, t1, t2, expand_nodes=False):
+        """Quick heuristic preprocessing to reduce tree differ time by removing matching sections."""
+        self.prune_sections(t1, t2)
+        if expand_nodes:
+            self.expand_nested(t1, t2)
 
-        Prune nodes from any sections that align across revisions to reduce tree size while maintaining structure.
-        """
-        t1_sections = [n for n in self.t1 if n.ntype == "Heading"]
-        t2_sections = [n for n in self.t2 if n.ntype == "Heading"]
-        prune = []
+    def expand_nested(self, t1, t2):
+        """Expand nested nodes in tree -- e.g., Ref tags with templates/links contained in them."""
+        for n in PostOrderIter(t1):
+            if n.ntype != 'Heading' and n.name != 'root' and n.ntype != 'Text':  # tag, link, etc.
+                rec_node_append(n)
+        for n in PostOrderIter(t2):
+            if n.ntype != 'Heading' and n.name != 'root' and n.ntype != 'Text':  # tag, link, etc.
+                rec_node_append(n)
+
+    def prune_sections(self, t1, t2):
+        """Prune nodes from any sections that align across revisions"""
+        t1_sections = [n for n in PostOrderIter(t1) if n.ntype == "Heading"]
+        t2_sections = [n for n in PostOrderIter(t2) if n.ntype == "Heading"]
         for secnode1 in t1_sections:
             for sn2_idx in range(len(t2_sections)):
                 secnode2 = t2_sections[sn2_idx]
                 if secnode1.text_hash == secnode2.text_hash:
-                    prune.append(secnode1)
-                    prune.append(secnode2)
+                    # assumes sections aren't hierarchical in tree
+                    # or if they are, the text_hash must also include nested sections
+                    secnode1.children = []
+                    secnode2.children = []
                     t2_sections.pop(sn2_idx)  # only match once
                     break
-        for n in prune:
-            # only keep section children and remove all other nodes
-            n.children = [c for c in n.children if c.ntype == "Heading"]
-
-        # remove nodes from t1/t2 structures
-        for i in range(len(self.t1) - 1, -1, -1):
-            if not self.t1[i].name == 'root' and self.t1[i].parent is None:
-                self.t1.pop(i)
-        for i in range(len(self.t2) - 1, -1, -1):
-            if not self.t2[i].name == 'root' and self.t2[i].parent is None:
-                self.t2.pop(i)
 
     def get_key_roots(self, tree):
         """Get keyroots (node has a left sibling or is the root) of a tree"""
