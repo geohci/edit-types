@@ -574,15 +574,17 @@ def node_to_name(n, lang='en'):
 def extract_text(node, lang='en'):
     """Extract what text would be displayed from any node."""
     ntype = simple_node_class(node, lang)
-    if ntype == 'Text' or ntype == 'HTMLEntity':
+    if ntype == 'Text':
         return str(node)
+    elif ntype == 'HTMLEntity':
+        return node.normalize()
     elif ntype == 'Wikilink':
         if node.text:
-            return str(node.text)
+            return node.text.strip_code()
         else:
-            return str(node.title)
+            return node.title.strip_code()
     elif ntype == 'ExternalLink' and node.title:
-        return str(node.title)
+        return node.title.strip_code()
     elif ntype == 'Tag':
         return node.contents.strip_code()
     else:  # Heading, Template, Comment, Argument, Category, Media
