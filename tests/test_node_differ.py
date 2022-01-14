@@ -69,3 +69,11 @@ def test_change_category():
     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
     assert expected_changes == nd.get_diff_count(diff)
 
+
+def test_remove_formatting():
+    curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen'''",
+                                          "Karl Josef Aigen",
+                                          1)
+    expected_changes = {'Text Formatting':{'remove':1}}
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+    assert expected_changes == nd.get_diff_count(diff)

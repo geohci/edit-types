@@ -22,11 +22,11 @@ def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
         curr_parsed_text = mw.parse(curr_wikitext)
 
         if node_type == 'Template':
-            prev_temp_dict = { temp.split('=')[0].strip():temp.split('=')[1] for temp in prev_parsed_text.filter_templates(recursive=False)[0].params}
-            curr_temp_dict = { temp.split('=')[0].strip():temp.split('=')[1] for temp in curr_parsed_text.filter_templates(recursive=False)[0].params}
+            prev_temp_dict = { temp.split('=',maxsplit=1)[0].strip():temp.split('=',maxsplit=1)[1] for temp in prev_parsed_text.filter_templates(recursive=False)[0].params}
+            curr_temp_dict = { temp.split('=',maxsplit=1)[0].strip():temp.split('=',maxsplit=1)[1] for temp in curr_parsed_text.filter_templates(recursive=False)[0].params}
 
             #Get the difference between template parameters. If it is more than 0, then a change occured
-            if len(set(curr_temp_dict.items()) - set(prev_temp_dict.items())) > 0:
+            if len(set(curr_temp_dict.items()) ^ set(prev_temp_dict.items())) > 0:
                 return True, 'Template'
 
         
@@ -49,8 +49,6 @@ def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
                     return True, 'Category'
 
         if node_type == 'Wikilink':
-            # TODO: this used to be just the first link, but that triggered later errors in .copy and filterLinksByNS.
-            #  Revisit if just keep the first link or not
             prev_wikilink = prev_parsed_text.filter_wikilinks(recursive=False)
             curr_wikilink = curr_parsed_text.filter_wikilinks(recursive=False)
 
@@ -81,7 +79,7 @@ def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
             if prev_filtered_table.contents != curr_filtered_table.contents:
                 return True, 'Table'
 
-            #Check if a text format chnages
+            #Check if a text format changes
             prev_filtered_text_formatting = prev_parsed_text.filter_tags(recursive=False)[0]
             prev_filtered_text_formatting = re.findall("'{2}.*''", str(prev_filtered_text_formatting[0]))[0]
 
@@ -91,6 +89,13 @@ def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
             if prev_filtered_text_formatting != curr_filtered_text_formatting:
                 return True, 'Text Formatting'
 
+
+            #Check if a list changes
+            prev_filtered_list = prev_parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)[0]
+            curr_filtered_list = curr_parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)[0]
+
+            if prev_filtered_list.contents != curr_filtered_list.contents:
+                return True, 'List'
 
         if node_type == 'Heading':
             prev_filtered_section = prev_parsed_text.filter_headings(recursive=False)[0]
@@ -157,6 +162,11 @@ def is_edit_type(wikitext, node_type):
         if len(text_format) > 0:
             return True, text_format[0], 'Text Formatting'
 
+        list_type = parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)
+        if len(list_type) > 0:
+            return True, list_type[0], 'List'
+
+
     elif node_type == 'Comment':
         comments = parsed_text.filter_comments(recursive=False)
         if len(comments) > 0:
@@ -192,7 +202,6 @@ def is_edit_type(wikitext, node_type):
         if len(external_link) > 0:
             return True, external_link[0], 'External Link'
     return False, None, None
-
 
 def get_diff_count(result):
     """ Gets the edit type count of a diff
@@ -241,8 +250,8 @@ def get_diff_count(result):
             
             if c["prev"]["section"] == s:
                 if c['prev']['type'] == c['curr']['type']:
-                    text = c['curr']['text']
                     is_edit_type_found,edit_type = is_change_in_edit_type(c['prev']['text'],c['curr']['text'],c['prev']['type'])
+                    
                     #check if edit_type in edit types dictionary
                     if is_edit_type_found:
                         if edit_types.get(edit_type,{}):
