@@ -841,7 +841,7 @@ def get_diff(prev_wikitext, curr_wikitext, lang='en'):
 
 class Differ:
 
-    def __init__(self, t1, t2, timeout=2, expand_nodes=False):
+    def __init__(self, t1, t2, timeout=2, expand_nodes=True):
         self.prune_trees(t1, t2, expand_nodes)
         self.t1 = []
         self.t2 = []
