@@ -91,24 +91,10 @@ def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
 
 
             #Check if a list changes
-            prev_filtered_list = prev_parsed_text.filter_tags(matches=lambda node: node.tag == "li",recursive=False)[0]
-            curr_filtered_list = curr_parsed_text.filter_tags(matches=lambda node: node.tag == "li",recursive=False)[0]
+            prev_filtered_list = prev_parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)[0]
+            curr_filtered_list = curr_parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)[0]
 
             if prev_filtered_list.contents != curr_filtered_list.contents:
-                return True, 'List'
-
-            
-            prev_filtered_ordered_list = prev_parsed_text.filter_tags(matches=lambda node: node.tag == "dt",recursive=False)[0]
-            curr_filtered_ordered_list = curr_parsed_text.filter_tags(matches=lambda node: node.tag == "dt",recursive=False)[0]
-
-            if prev_filtered_ordered_list.contents != curr_filtered_ordered_list.contents:
-                return True, 'List'
-
-            
-            prev_filtered_unordered_list = prev_parsed_text.filter_tags(matches=lambda node: node.tag == "dd",recursive=False)[0]
-            curr_filtered_unordered_list = curr_parsed_text.filter_tags(matches=lambda node: node.tag == "dd",recursive=False)[0]
-
-            if prev_filtered_unordered_list.contents != curr_filtered_unordered_list.contents:
                 return True, 'List'
 
         if node_type == 'Heading':
@@ -176,17 +162,9 @@ def is_edit_type(wikitext, node_type):
         if len(text_format) > 0:
             return True, text_format[0], 'Text Formatting'
 
-        list_type = parsed_text.filter_tags(matches=lambda node: node.tag == "li",recursive=False)
+        list_type = parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)
         if len(list_type) > 0:
             return True, list_type[0], 'List'
-
-        ordered_list_type = parsed_text.filter_tags(matches=lambda node: node.tag == "dt",recursive=False)
-        if len(ordered_list_type) > 0:
-            return True, ordered_list_type[0], 'List'
-
-        unordered_list_type = parsed_text.filter_tags(matches=lambda node: node.tag == "dd",recursive=False)
-        if len(unordered_list_type) > 0:
-            return True, unordered_list_type[0], 'List'
 
 
     elif node_type == 'Comment':
@@ -280,18 +258,5 @@ def get_diff_count(result):
                             edit_types[edit_type]['change'] = edit_types[edit_type].get('change', 0) + 1
                         else:
                             edit_types[edit_type] = {'change':1}
-
-        for m in result['move']:
-
-            if m["section"] == s:
-                text = m['text']
-                is_edit_type_found,wikitext,edit_type = is_edit_type(text,m['type'])
-                #check if edit_type in edit types dictionary
-                if is_edit_type_found:
-                    if edit_types.get(edit_type,{}):
-                        edit_types[edit_type]['move'] = edit_types[edit_type].get('move', 0) + 1
-                    else:
-                        edit_types[edit_type] = {'move':1}
-
 
     return edit_types
