@@ -75,14 +75,5 @@ def test_remove_formatting():
                                           "Karl Josef Aigen",
                                           1)
     expected_changes = {'Text Formatting':{'remove':1}}
-    diff = get_diff(prev_wikitext, curr_wikitext)
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
     assert expected_changes == nd.get_diff_count(diff)
-
-
-def test_nested_nodes():
-    curr_wikitext = prev_wikitext.replace("<ref>{{Bryan (3rd edition)|title=Aigen, Karl |volume=1}}</ref>",
-                                          "<ref>{{Bryan (3rd edition)|title=[[Aigen, Karl]] |volume=1}}</ref>",
-                                          1)
-    expected_changes = {'Reference':{'change':1},'Wikilink':{'insert':1},'Template':{'change':1}}
-    diff = get_diff(prev_wikitext, curr_wikitext)
-    assert expected_changes == nd.get_diff_count(diff) 
