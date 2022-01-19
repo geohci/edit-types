@@ -222,48 +222,47 @@ def get_diff_count(result):
     dict
         a dict containing a count of edit type occurence
     """
-    sections_affected = set()
-    for r in result['remove']:
-        sections_affected.add(r["section"])
-    for i in result['insert']:
-        sections_affected.add(i["section"])
-    for c in result['change']:
-        sections_affected.add(c['prev']["section"])
 
     edit_types = {}
-    for s in sections_affected:
-        for r in result['remove']:
-            if r["section"] == s:
-                text = r['text']
-                is_edit_type_found,wikitext,edit_type = is_edit_type(text,r['type'])
-                if is_edit_type_found:
-                    if edit_types.get(edit_type,{}):
-                        edit_types[edit_type]['remove'] = edit_types[edit_type].get('remove', 0) + 1
-                    else:
-                        edit_types[edit_type] = {'remove':1}
+    for r in result['remove']:
+        text = r['text']
+        is_edit_type_found,wikitext,edit_type = is_edit_type(text,r['type'])
+        if is_edit_type_found:
+            if edit_types.get(edit_type,{}):
+                edit_types[edit_type]['remove'] = edit_types[edit_type].get('remove', 0) + 1
+            else:
+                edit_types[edit_type] = {'remove':1}
 
-        for i in result['insert']:
-            if i["section"] == s:
-                text = i['text']
-                is_edit_type_found,wikitext,edit_type = is_edit_type(text,i['type'])
-                #check if edit_type in edit types dictionary
-                if is_edit_type_found:
-                    if edit_types.get(edit_type,{}):
-                        edit_types[edit_type]['insert'] = edit_types[edit_type].get('insert', 0) + 1
-                    else:
-                        edit_types[edit_type] = {'insert':1}
+    for i in result['insert']:
+        text = i['text']
+        is_edit_type_found,wikitext,edit_type = is_edit_type(text,i['type'])
+        #check if edit_type in edit types dictionary
+        if is_edit_type_found:
+            if edit_types.get(edit_type,{}):
+                edit_types[edit_type]['insert'] = edit_types[edit_type].get('insert', 0) + 1
+            else:
+                edit_types[edit_type] = {'insert':1}
 
-        for c in result['change']:
-            
-            if c["prev"]["section"] == s:
-                if c['prev']['type'] == c['curr']['type']:
-                    is_edit_type_found,edit_type = is_change_in_edit_type(c['prev']['text'],c['curr']['text'],c['prev']['type'])
+    for c in result['change']:
+        if c['prev']['type'] == c['curr']['type']:
+            is_edit_type_found,edit_type = is_change_in_edit_type(c['prev']['text'],c['curr']['text'],c['prev']['type'])
+            #check if edit_type in edit types dictionary
+            if is_edit_type_found:
+                if edit_types.get(edit_type,{}):
+                    edit_types[edit_type]['change'] = edit_types[edit_type].get('change', 0) + 1
+                else:
+                    edit_types[edit_type] = {'change':1}
+
+
+    for m in result['move']:
+        if m['prev']['type'] == m['curr']['type']:
+            is_edit_type_found,edit_type = is_change_in_edit_type(m['prev']['text'],m['curr']['text'],m['prev']['type'])
                     
-                    #check if edit_type in edit types dictionary
-                    if is_edit_type_found:
-                        if edit_types.get(edit_type,{}):
-                            edit_types[edit_type]['change'] = edit_types[edit_type].get('change', 0) + 1
-                        else:
-                            edit_types[edit_type] = {'change':1}
+            #check if edit_type in edit types dictionary
+            if is_edit_type_found:
+                if edit_types.get(edit_type,{}):
+                    edit_types[edit_type]['move'] = edit_types[edit_type].get('move', 0) + 1
+                else:
+                    edit_types[edit_type] = {'move':1}
 
     return edit_types
