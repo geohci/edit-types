@@ -102,3 +102,20 @@ def test_change_template():
     expected_changes = {'Template':{'change':1}}
     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
     assert expected_changes == nd.get_diff_count(diff)
+def test_nested_nodes_ref_temp_link():
+    curr_wikitext = prev_wikitext.replace("<ref>{{Bryan (3rd edition)|title=Aigen, Karl |volume=1}}</ref>",
+                                          "<ref>{{Bryan (3rd edition)|title=[[Aigen, Karl]] |volume=1}}</ref>",
+                                          1)
+    expected_changes = {'Reference':{'change':1},'Wikilink':{'insert':1},'Template':{'change':1}}
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+    assert expected_changes == nd.get_diff_count(diff)
+
+def test_nested_nodes_media_format():
+    # Known that this test fails right now -- see https://github.com/geohci/edit-types/issues/13
+    curr_wikitext = prev_wikitext.replace("[[File:Carl Aigen Fischmarkt.jpg|thumb|''Fischmarkt'' by Karl Aigen]]",
+                                          "[[File:Carl Aigen Fischmarkt.jpg|thumb|Fischmarkt by Karl Aigen<ref>A reference</ref>]]",
+                                          1)
+    expected_changes = {'Text Formatting':{'remove':1},'Media':{'change':1}, 'Reference':{'insert':1}}
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+    print(diff)
+    assert expected_changes == nd.get_diff_count(diff)
