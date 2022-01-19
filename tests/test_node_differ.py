@@ -77,3 +77,28 @@ def test_remove_formatting():
     expected_changes = {'Text Formatting':{'remove':1}}
     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
     assert expected_changes == nd.get_diff_count(diff)
+
+def test_change_formatting():
+    curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen'''",
+                                          "''Karl Josef Aigen''",
+                                          1)
+    expected_changes = {'Text Formatting':{'change':1}}
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+    assert expected_changes == nd.get_diff_count(diff)
+
+
+def test_insert_template():
+    curr_wikitext = prev_wikitext.replace('{{Use dmy dates|date=April 2017}}\n',
+                                          '{{Use dmy dates|date=April 2017}}\n{{Use dmy new dates|date=April 2017}}',
+                                          1)
+    expected_changes = {'Template':{'insert':1}}
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+    assert expected_changes == nd.get_diff_count(diff)
+
+def test_change_template():
+    curr_wikitext = prev_wikitext.replace('{{Use dmy dates|date=April 2017}}\n',
+                                          '{{Use dmy dates|date=April 2018}}\n',
+                                          1)
+    expected_changes = {'Template':{'change':1}}
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+    assert expected_changes == nd.get_diff_count(diff)
