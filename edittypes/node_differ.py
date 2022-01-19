@@ -66,36 +66,43 @@ def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
 
         if node_type == 'Tag':
             #Check if a reference changes
-            prev_filtered_ref = prev_parsed_text.filter_tags(matches=lambda node: node.tag == "ref",recursive=False)[0]
-            curr_filtered_ref = curr_parsed_text.filter_tags(matches=lambda node: node.tag == "ref",recursive=False)[0]
-
-            if prev_filtered_ref.contents != curr_filtered_ref.contents:
-                return True, 'Reference'
+            prev_filtered_ref = prev_parsed_text.filter_tags(matches=lambda node: node.tag == "ref",recursive=False)
+            curr_filtered_ref = curr_parsed_text.filter_tags(matches=lambda node: node.tag == "ref",recursive=False)
+            if len(prev_filtered_ref) > 0 and len(curr_filtered_ref) > 0:
+                if prev_filtered_ref[0].contents != curr_filtered_ref[0].contents:
+                    return True, 'Reference'
 
             #Check if a table changes
-            prev_filtered_table = prev_parsed_text.filter_tags(matches=lambda node: node.tag == "table",recursive=False)[0]
-            curr_filtered_table = curr_parsed_text.filter_tags(matches=lambda node: node.tag == "table",recursive=False)[0]
 
-            if prev_filtered_table.contents != curr_filtered_table.contents:
-                return True, 'Table'
+            prev_filtered_table = prev_parsed_text.filter_tags(matches=lambda node: node.tag == "table",recursive=False)
+            curr_filtered_table = curr_parsed_text.filter_tags(matches=lambda node: node.tag == "table",recursive=False)
+
+            if len(prev_filtered_table) > 0 and len(curr_filtered_table) > 0:
+                if prev_filtered_table[0].contents != curr_filtered_table[0].contents:
+                    return True, 'Table'
 
             #Check if a text format changes
-            prev_filtered_text_formatting = prev_parsed_text.filter_tags(recursive=False)[0]
-            prev_filtered_text_formatting = re.findall("'{2}.*''", str(prev_filtered_text_formatting[0]))[0]
+            prev_filtered_text_formatting = prev_parsed_text.filter_tags(recursive=False)
 
-            curr_filtered_text_formatting = curr_parsed_text.filter_tags(recursive=False)[0]
-            curr_filtered_text_formatting = re.findall("'{2}.*''", str(curr_filtered_text_formatting[0]))[0]
+            curr_filtered_text_formatting = curr_parsed_text.filter_tags(recursive=False)
 
-            if prev_filtered_text_formatting != curr_filtered_text_formatting:
-                return True, 'Text Formatting'
+            if len(prev_filtered_text_formatting) > 0 and len(curr_filtered_text_formatting) > 0:
+                prev_filtered_text_formatting = re.findall("'{2}.*''", str(prev_filtered_text_formatting[0]))
+                curr_filtered_text_formatting = re.findall("'{2}.*''", str(curr_filtered_text_formatting[0]))
+
+                if len(prev_filtered_text_formatting) > 0 and len(curr_filtered_text_formatting) > 0:
+
+                    if prev_filtered_text_formatting[0] != curr_filtered_text_formatting[0]:
+                        return True, 'Text Formatting'
 
 
             #Check if a list changes
-            prev_filtered_list = prev_parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)[0]
-            curr_filtered_list = curr_parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)[0]
+            prev_filtered_list = prev_parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)
+            curr_filtered_list = curr_parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)
 
-            if prev_filtered_list.contents != curr_filtered_list.contents:
-                return True, 'List'
+            if len(prev_filtered_list) > 0  and len(curr_filtered_list) > 0:
+                if prev_filtered_list[0].contents != curr_filtered_list[0].contents:
+                    return True, 'List'
 
         if node_type == 'Heading':
             prev_filtered_section = prev_parsed_text.filter_headings(recursive=False)[0]
