@@ -1,4 +1,4 @@
-[![Python application](https://github.com/Amamgbu/edit-types/actions/workflows/test-app.yml/badge.svg?branch=main)](https://github.com/Amamgbu/edit-types/actions/workflows/test-app.yml)
+[![Build status](https://github.com/Amamgbu/edit-types/actions/workflows/test-app.yml/badge.svg?branch=main)](https://github.com/Amamgbu/edit-types/actions/workflows/test-app.yml)
 
 # edit-types
 Edit diffs and type detection for Wikipedia.
