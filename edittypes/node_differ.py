@@ -253,16 +253,15 @@ def get_diff_count(result):
                 else:
                     edit_types[edit_type] = {'change':1}
 
-
     for m in result['move']:
-        if m['prev']['type'] == m['curr']['type']:
-            is_edit_type_found,edit_type = is_change_in_edit_type(m['prev']['text'],m['curr']['text'],m['prev']['type'])
-                    
-            #check if edit_type in edit types dictionary
-            if is_edit_type_found:
-                if edit_types.get(edit_type,{}):
-                    edit_types[edit_type]['move'] = edit_types[edit_type].get('move', 0) + 1
-                else:
-                    edit_types[edit_type] = {'move':1}
+        text = m['text']        
+        is_edit_type_found,edit_type = is_edit_type(text, m['type'])
+                
+        #check if edit_type in edit types dictionary
+        if is_edit_type_found:
+            if edit_types.get(edit_type,{}):
+                edit_types[edit_type]['move'] = edit_types[edit_type].get('move', 0) + 1
+            else:
+                edit_types[edit_type] = {'move':1}
 
     return edit_types
