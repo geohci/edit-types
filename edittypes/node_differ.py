@@ -150,65 +150,65 @@ def is_edit_type(wikitext, node_type):
     if node_type == 'Text':
         text = parsed_text.filter_text(recursive=False)
         if len(text) > 0:
-            return True, text[0], 'Text'
+            return True, 'Text'
 
 
     elif node_type == 'Tag':
         # Check if edit type is a reference
         ref = parsed_text.filter_tags(matches=lambda node: node.tag == "ref",recursive=False)
         if len(ref) > 0:
-            return True, ref[0], 'Reference'
+            return True, 'Reference'
         # Check if edit type is a table
         table = parsed_text.filter_tags(matches=lambda node: node.tag == "table",recursive=False)
         if len(table) > 0:
-            return True, table[0], 'Table'
+            return True, 'Table'
 
         # Check if edit type is a text formatting
         text_format = parsed_text.filter_tags(recursive=False)
         text_format = re.findall("'{2}.*''", str(text_format[0]))
         if len(text_format) > 0:
-            return True, text_format[0], 'Text Formatting'
+            return True, 'Text Formatting'
 
         list_type = parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)
         if len(list_type) > 0:
-            return True, list_type[0], 'List'
+            return True, 'List'
 
 
     elif node_type == 'Comment':
         comments = parsed_text.filter_comments(recursive=False)
         if len(comments) > 0:
-            return True, comments[0], 'Comment'
+            return True, 'Comment'
 
     elif node_type == 'Template':
         templates = parsed_text.filter_templates(recursive=False)
         if len(templates) > 0:
-            return True, templates[0], 'Template'
+            return True, 'Template'
 
     elif node_type == 'Heading':
         section = parsed_text.filter_headings(recursive=False)
         if len(section) > 0:
-            return True, section[0], 'Section'
+            return True, 'Section'
 
     elif node_type == 'Wikilink':
         wikilink = parsed_text.filter_wikilinks(recursive=False)
         if len(wikilink) > 0:
-            return True, wikilink[0], 'Wikilink'
+            return True, 'Wikilink'
 
     elif node_type == 'Media':
         media = parsed_text.filter_wikilinks(recursive=False)
         if len(media) > 0:
-            return True, media[0], 'Media'
+            return True, 'Media'
 
     elif node_type == 'Category':
         category = parsed_text.filter_wikilinks(recursive=False)
         if len(category) > 0:
-            return True, category[0], 'Category'
+            return True, 'Category'
 
     elif node_type == 'ExternalLink':
         external_link = parsed_text.filter_external_links(recursive=False)
         if len(external_link) > 0:
-            return True, external_link[0], 'External Link'
-    return False, None, None
+            return True, 'External Link'
+    return False, None
 
 def get_diff_count(result):
     """ Gets the edit type count of a diff
@@ -226,7 +226,7 @@ def get_diff_count(result):
     edit_types = {}
     for r in result['remove']:
         text = r['text']
-        is_edit_type_found,wikitext,edit_type = is_edit_type(text,r['type'])
+        is_edit_type_found,edit_type = is_edit_type(text,r['type'])
         if is_edit_type_found:
             if edit_types.get(edit_type,{}):
                 edit_types[edit_type]['remove'] = edit_types[edit_type].get('remove', 0) + 1
@@ -235,7 +235,7 @@ def get_diff_count(result):
 
     for i in result['insert']:
         text = i['text']
-        is_edit_type_found,wikitext,edit_type = is_edit_type(text,i['type'])
+        is_edit_type_found,edit_type = is_edit_type(text,i['type'])
         #check if edit_type in edit types dictionary
         if is_edit_type_found:
             if edit_types.get(edit_type,{}):
