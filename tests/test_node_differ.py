@@ -117,7 +117,6 @@ def test_nested_nodes_ref_temp_link():
 #                                           1)
 #     expected_changes = {'Template':{'move':1}}
 #     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
-#     print(nd.get_diff_count(diff))
 #     assert expected_changes == nd.get_diff_count(diff)
 
 # def test_nested_nodes_media_format():
