@@ -1,3 +1,5 @@
+[![Build status](https://github.com/geohci/edit-types/actions/workflows/test-app.yml/badge.svg?branch=main)](https://github.com/geohci/edit-types/actions/workflows/test-app.yml)
+
 # edit-types
 Edit diffs and type detection for Wikipedia.
 
