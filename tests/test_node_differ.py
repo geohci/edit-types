@@ -1,7 +1,3 @@
-import copy
-import json
-
-import mwparserfromhell
 from context import nd
 from context import td
 
@@ -110,6 +106,14 @@ def test_nested_nodes_ref_temp_link():
     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
     assert expected_changes == nd.get_diff_count(diff)
 
+def test_swap_templates():
+    curr_wikitext = prev_wikitext.replace("{{commons category}}\n{{Authority control}}",
+                                          "{{Authority control}}\n{{commons category}}",
+                                          1)
+    expected_changes = {'Template':{'move':2}}
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+    assert expected_changes == nd.get_diff_count(diff)
+
 
 # def test_move_template():
 #     curr_wikitext = prev_wikitext.replace('\n{{Use dmy dates|date=April 2017}}',
@@ -128,4 +132,3 @@ def test_nested_nodes_ref_temp_link():
 #     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
 #     print(diff)
 #     assert expected_changes == nd.get_diff_count(diff)
-

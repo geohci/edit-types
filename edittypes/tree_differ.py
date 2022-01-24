@@ -587,7 +587,8 @@ def extract_text(node, lang='en'):
     elif ntype == 'ExternalLink' and node.title:
         return node.title.strip_code()
     elif ntype == 'Tag':
-        return node.contents.strip_code()
+        if node.tag not in ('div', 'gallery'):  # mwparserfromhell doesn't handle these well
+           return node.contents.strip_code()
     else:  # Heading, Template, Comment, Argument, Category, Media
         return ''
 
@@ -680,28 +681,66 @@ def format_result(diff, sections1, sections2):
     return result
 
 def detect_moves(diff):
-    """Detect when nodes were moved (as opposed to removed + inserted)."""
+    """Detect when nodes were moved (as opposed to removed/inserted/changed) and update diff."""
+
+    # build list of all prev and curr nodes to compare for matches
+    prev_nodes = [('remove', i, pn) for i,pn in enumerate(diff['remove'])]
+    curr_nodes = [('insert', j, cn) for j,cn in enumerate(diff['insert'])]
+    for k in range(len(diff['change'])):
+        prev_nodes.append(('change', k, diff['change'][k][0]))
+        curr_nodes.append(('change', k, diff['change'][k][1]))
+
+    # loop through prev/curr nodes and look for matches. constraints:
+    # * nodes can only match with one other node
+    # * if a node is part of a change, make sure it's corresponding node is moved to insert/remove accordingly
     prev_moved = []
     curr_moved = []
-    for i,pn in enumerate(diff['remove']):
-        for j,cn in enumerate(diff['insert']):
-            if pn.ntype == cn.ntype and pn.text_hash == cn.text_hash:
-                prev_moved.append(i)
-                curr_moved.append(j)
+    curr_found = set()
+    add_to_insert = {}
+    add_to_remove = {}
+    for pet, pidx, pn in prev_nodes:
+        for cet, cidx, cn in curr_nodes:
+            cid = f'{cet}-{cidx}'
+            if pn.ntype == cn.ntype and pn.text_hash == cn.text_hash and cid not in curr_found:
+                prev_moved.append((pet, pidx))
+                curr_moved.append((cet, cidx))
+                curr_found.add(cid)
+                if pet == 'change':
+                    corresponding_changed_node = diff['change'][pidx][1]
+                    add_to_insert[cidx] = corresponding_changed_node
+                if cet == 'change':
+                    corresponding_changed_node = diff['change'][cidx][0]
+                    add_to_remove[pidx] = corresponding_changed_node
                 break
+
+    # populate move list
+    # if from a change, make sure it also isn't set to be moved to insert/remove
     diff['move'] = []
     if prev_moved:
         for i in range(len(prev_moved)):
-            pn = diff['remove'][prev_moved[i]]
-            cn = diff['insert'][curr_moved[i]]
+            pet, pidx = prev_moved[i]
+            cet, cidx = curr_moved[i]
+            pn = diff[pet][pidx]
+            if pet == 'change':  # pn is not the node but tuple of (prev_node, curr_node)
+                pn = pn[0]
+                if pidx in add_to_remove:  # don't add to remove -- was involved in its own move
+                    add_to_remove.pop(pidx)
+            cn = diff[cet][cidx]
+            if cet == 'change':
+                cn = cn[1]
+                if cidx in add_to_insert:
+                    add_to_insert.pop(cidx)
             diff['move'].append((pn, cn))
         prev_moved = sorted(prev_moved, reverse=True)
-        for i in prev_moved:
-            diff['remove'].pop(i)
+        for pet, pidx in prev_moved:
+            diff[pet].pop(pidx)
         curr_moved = sorted(curr_moved, reverse=True)
-        for i in curr_moved:
-            diff['insert'].pop(i)
+        for cet, cidx in curr_moved:
+            if (cet, cidx) not in prev_moved:  # was part of a change, already popped
+                diff[cet].pop(cidx)
 
+        diff['insert'].extend(list(add_to_insert.values()))
+        diff['remove'].extend(list(add_to_remove.values()))
 
 def section_mapping(result, s1, s2):
     """Build mapping of sections between previous and current versions of article."""
