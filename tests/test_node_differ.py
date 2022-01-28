@@ -111,6 +111,13 @@ def test_nested_nodes_ref_temp_link():
     assert expected_changes == nd.get_diff_count(diff)
 
 
+def test_text_count_english_punctuations():
+    text = "Wait for it... awesome! More things to come. Why me?"
+    expected_changes = {'sentence_count':3,'word_count':10,"whitespace_count":9,"punctuation_count":4}
+    get_text_structure = nd.parse_text(text)
+    assert expected_changes == get_text_structure
+
+
 # def test_move_template():
 #     curr_wikitext = prev_wikitext.replace('\n{{Use dmy dates|date=April 2017}}',
 #                                           '{{Use dmy dates|date=April 2017}}\n',
