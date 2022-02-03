@@ -133,7 +133,16 @@ def test_change_text_count_english_punctuations():
                         'paragraph_count':{"Waits for it... awesome!! More things to come. Why me?":-1,"Wait for it... awesome! More things to come. Why me?":1}
                        }
     get_text_structure = nd.parse_change_text(prev_text,curr_text,'Text')
-    assert expected_changes == get_text_structure 
+    assert expected_changes == get_text_structure
+
+
+# def test_unbracketed_media():
+#     curr_wikitext = prev_wikitext.replace('===Works===\n',
+#                                           '===Works===\n<gallery>\nFile:Carl Aigen Fischmarkt.jpg|thumb|Caption\n</gallery>',
+#                                           1)
+#     expected_changes = {'Tag': {'insert': 1}, 'Media':{'insert':1}}
+#     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+#     assert expected_changes == nd.get_diff_count(diff)
 
 # def test_move_template():
 #     curr_wikitext = prev_wikitext.replace('\n{{Use dmy dates|date=April 2017}}',
