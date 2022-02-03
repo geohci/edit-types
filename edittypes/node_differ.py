@@ -23,7 +23,9 @@ NON_ENGLISH_UNICODE = '''[\u0609\u060a\u060c\u060d\u061b\u061e\u061f\u066a\u066b
 \u205c\u205d\u205e\u2cf9\u2cfa\u2cfb\u2cfc\u2cfe\u2cff]'''
 ENGLISH_UNICODE = '[\u00b7\u00bf]'
 
-
+#Initialize tokenizer class
+TOKENIZER = Tokenizer(ENGLISH_UNICODE, NON_ENGLISH_UNICODE)
+    
 def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
     """ Checks if a change occurs in wikitexts
 
@@ -233,11 +235,81 @@ def is_edit_type(wikitext, node_type):
             return True, 'External Link'
     return False, None
 
-def parse_text(wikitext, english_unicode=ENGLISH_UNICODE, non_english_unicode=NON_ENGLISH_UNICODE):
-    tokenizer = Tokenizer(english_unicode, non_english_unicode)
+def parse_text(wikitext, node_type):
+    if node_type == 'Text':
+        return TOKENIZER.tokenize_and_get_occurence(wikitext)
 
-    return tokenizer.tokenize_and_count(wikitext)
+    return None
 
+def parse_change_text(prev_wikitext,curr_wikitext,node_type):
+    if node_type == 'Text':
+        prev_tokenizer = TOKENIZER.tokenize_and_get_occurence(prev_wikitext)
+        curr_tokenizer = TOKENIZER.tokenize_and_get_occurence(curr_wikitext)
+
+        #Gets the list of differences. Counts both added and removed whitespaces
+        whitespace_items_diff_list = list(set(curr_tokenizer['whitespace_count'].items())  ^ set(prev_tokenizer['whitespace_count'].items()))
+        punctuation_items_diff_list = list(set(curr_tokenizer['punctuation_count'].items())  ^ set(prev_tokenizer['punctuation_count'].items()))
+        word_items_diff_list = list(set(curr_tokenizer['word_count'].items())  ^ set(prev_tokenizer['word_count'].items()))
+        sentence_items_diff_list = list(set(curr_tokenizer['sentence_count'].items())  ^ set(prev_tokenizer['sentence_count'].items()))
+        paragraphs_items_diff_list = list(set(curr_tokenizer['paragraph_count'].items())  ^ set(prev_tokenizer['paragraph_count'].items()))
+
+        result = {'whitespace_count':{}, 'punctuation_count':{}, 'word_count': {}, 'sentence_count':{}, 'paragraph_count': {} }
+
+
+        #Sort whitespaces
+        for item in whitespace_items_diff_list:
+            if item[0] not in prev_tokenizer['whitespace_count'].keys() and item[0] in curr_tokenizer['whitespace_count'].keys():
+                result['whitespace_count'] = result.get('whitespace_count',{}) | {item:1}
+            elif item[0] in prev_tokenizer['whitespace_count'].keys() and item[0] in curr_tokenizer['whitespace_count'].keys():
+                diff = curr_tokenizer['whitespace_count'][item[0]] - prev_tokenizer['whitespace_count'][item[0]]
+                result['whitespace_count'] = result.get('whitespace_count',{}) |  {item[0]:diff} 
+            else:
+                result['whitespace_count'] = result.get('whitespace_count',{}) | {item[0]:-1}
+
+        #Sort punctuations
+        for item in punctuation_items_diff_list:
+            if item[0] not in prev_tokenizer['punctuation_count'].keys() and item[0] in curr_tokenizer['punctuation_count'].keys():
+                result['punctuation_count'] = result.get('punctuation_count',{}) | {item:1}
+            elif item[0] in prev_tokenizer['punctuation_count'].keys() and item[0] in curr_tokenizer['punctuation_count'].keys():
+                diff = curr_tokenizer['punctuation_count'][item[0]] - prev_tokenizer['punctuation_count'][item[0]]
+                result['punctuation_count'] = result.get('punctuation_count',{}) |  {item[0]:diff}
+            else:
+                result['punctuation_count'] = result.get('punctuation_count',{}) | {item[0]:-1}
+
+        #Sort words
+        for item in word_items_diff_list:
+            if item[0] not in prev_tokenizer['word_count'].keys() and item[0] in curr_tokenizer['word_count'].keys():
+                result['word_count'] = result.get('word_count',{}) | {item[0]:1}
+            elif item[0] in prev_tokenizer['word_count'].keys() and item[0] in curr_tokenizer['word_count'].keys():
+                diff = curr_tokenizer['word_count'][item[0]] - prev_tokenizer['word_count'][item[0]]
+                result['word_count'] = result.get('word_count',{}) |  {item[0]:diff}
+            else:
+                result['word_count'] = result.get('word_count',{}) | {item[0]:-1}
+
+        #Sort sentences
+        for item in sentence_items_diff_list:
+            if item[0] not in prev_tokenizer['sentence_count'].keys() and item[0] in curr_tokenizer['sentence_count'].keys():
+                result['sentence_count'] = result.get('sentence_count',{}) | {item[0]:1}
+            elif item[0] in prev_tokenizer['sentence_count'].keys() and item[0] in curr_tokenizer['sentence_count'].keys():
+                diff = curr_tokenizer['sentence_count'][item[0]] - prev_tokenizer['sentence_count'][item[0]]
+                result['sentence_count'] = result.get('sentence_count',{}) |  {item[0]:diff}
+            else:
+                result['sentence_count'] = result.get('sentence_count',{}) | {item[0]:-1}
+
+
+        #Sort paragraphs
+        for item in paragraphs_items_diff_list:
+            if item[0] not in prev_tokenizer['paragraph_count'].keys() and item[0] in curr_tokenizer['paragraph_count'].keys():
+                result['paragraph_count'] = result.get('paragraph_count',{}) | {item[0]:1}
+            elif item[0] in prev_tokenizer['paragraph_count'].keys() and item[0] in curr_tokenizer['paragraph_count'].keys():
+                diff = curr_tokenizer['paragraph_count'][item[0]] - prev_tokenizer['paragraph_count'][item[0]]
+                result['paragraph_count'] = result.get('paragraph_count',{}) |  {item[0]:diff}
+            else:
+                result['paragraph_count'] = result.get('paragraph_count',{}) | {item[0]:-1}
+
+        return result
+
+    return None
 
 def get_diff_count(result):
     """ Gets the edit type count of a diff
