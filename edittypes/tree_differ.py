@@ -1,3 +1,4 @@
+import re
 import time
 
 from anytree import PostOrderIter, NodeMixin
@@ -517,6 +518,16 @@ CAT_ALIASES = {
     "zh-yue": ["分类", "分類", "类", "類"],
 }
 
+IMAGE_EXTENSIONS = ['.jpg', '.png', '.svg', '.gif']
+VIDEO_EXTENSIONS = ['.ogv', '.webm', '.mpg', '.mpeg']
+AUDIO_EXTENSIONS = ['.ogg', '.mp3', '.mid', '.webm', '.flac', '.wav']
+MEDIA_EXTENSIONS = list(set(IMAGE_EXTENSIONS + VIDEO_EXTENSIONS + AUDIO_EXTENSIONS))
+
+# build regex that checks for all media extensions
+EXTEN_REGEX = ('(' + '|'.join([e + r'\b' for e in MEDIA_EXTENSIONS]) + ')').replace('.', r'\.')
+# join in the extension regex with one that requiries at least one alphanumeric and/or a few special characters before it
+EXTEN_PATTERN = re.compile(fr'([\w ,().-]+){EXTEN_REGEX}', flags=re.UNICODE)
+
 class OrderedNode(NodeMixin):  # Add Node feature
     def __init__(self, name, ntype='Text', text_hash=None, idx=-1, text='', char_offset=-1, section=None, parent=None, children=None):
         super(OrderedNode, self).__init__()
@@ -616,6 +627,22 @@ def sec_node_tree(wt, lang='en'):
                 char_offset += len(str(n))
     return root, secname_to_text
 
+def find_nested_media(wikitext, max_link_length=240):
+    """Case-insensitive search for media files (lacking brackets) in wikitext -- i.e. in Templates and Galleries.
+
+    For setting max_link_length: https://commons.wikimedia.org/wiki/Commons:File_naming#Length
+    """
+    lc_wt = wikitext.lower()
+    media = []
+    end = 0
+    while True:
+        m = EXTEN_PATTERN.search(lc_wt, pos=end)
+        if m is None:
+            break
+        start, end = m.span()
+        if end - start <= max_link_length:
+            media.append(wikitext[start:end].strip())
+    return media
 
 def rec_node_append(node, lang='en'):
     """Build tree of document nodes by recursing within a single wikitext node.
@@ -637,7 +664,18 @@ def rec_node_append(node, lang='en'):
         if idx == 0:
             continue  # skip root node -- already set
         ntype = simple_node_class(nn, lang)
-        if ntype != 'Text':  # skip Text nodes -- that's the standard content of the root node
+        if ntype == 'Text':
+            # templates / galleries are where we find nested media and media w/o bracket should be IDed as text by mwparserfromhell
+            if root.ntype == 'Template' or (root.ntype == 'Tag' and root.text.startswith('<gallery')):
+                media = find_nested_media(str(nn))
+                for m in media:
+                    nn_node = OrderedNode(f'Media: {m[:10]}...',
+                                          ntype='Media',
+                                          text=m,
+                                          char_offset=base_offset + wt.find(str(m), parent_ranges[0][0]),
+                                          section=root.section,
+                                          parent=root)
+        else:
             node_start = wt.find(str(nn), parent_ranges[0][0])  # start looking from the start of the latest node
             # identify direct parent of node
             for parent in parent_ranges:
