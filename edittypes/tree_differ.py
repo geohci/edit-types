@@ -597,9 +597,9 @@ def extract_text(node, lang='en'):
             return node.title.strip_code()
     elif ntype == 'ExternalLink' and node.title:
         return node.title.strip_code()
-    elif ntype == 'Tag':
-        if node.tag not in ('div', 'gallery'):  # mwparserfromhell doesn't handle these well
-           return node.contents.strip_code()
+    # mwparserfromhell doesn't handle div/gallery well
+    elif ntype == 'Tag' and node.tag not in ('div', 'gallery'):
+        return node.contents.strip_code()
     else:  # Heading, Template, Comment, Argument, Category, Media
         return ''
 
