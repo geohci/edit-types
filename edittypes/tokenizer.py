@@ -29,7 +29,7 @@ class Tokenizer:
 
     def get_whitespace(self, text):
         #Get whitespaces. Detects newlines, return characters as well as spaces as whitespaces.
-        whitespace = re.findall(r'[\t\n\r\f\v\s]',text)
+        whitespace = re.findall(r'[\s]+',text)
         return whitespace
     
 
