@@ -115,6 +115,26 @@ def test_swap_templates():
     assert expected_changes == nd.get_diff_count(diff)
 
 
+def test_text_count_english_punctuations():
+    text = "Wait for it... awesome! More things to come. Why me?"
+    expected_changes = {'sentence_count':{'Wait for it... awesome':1,' More things to come':1, ' Why me':1},'word_count':{'Wait':1,'for':1,'it':1,'awesome':1,'More':1,
+                        'things':1,'to':1,'come':1,'Why':1,'me':1},"whitespace_count":{' ':9},"punctuation_count":{'!':1,'?':1,'.':1,'...':1},
+                        'paragraph_count':{'Wait for it... awesome! More things to come. Why me?':1}
+                       }
+    get_text_structure = nd.parse_text(text,'Text')
+    assert expected_changes == get_text_structure
+
+
+def test_change_text_count_english_punctuations():
+    curr_text = "Wait for it... awesome! More things to come. Why me?"
+    prev_text = "Waits for it... awesome!! More things to come. Why me?"
+    expected_changes = {'sentence_count':{'Waits for it... awesome':-1,'Wait for it... awesome':1},'word_count':{'Waits':-1,'Wait':1},
+                        "whitespace_count":{},"punctuation_count":{'!':-1},
+                        'paragraph_count':{"Waits for it... awesome!! More things to come. Why me?":-1,"Wait for it... awesome! More things to come. Why me?":1}
+                       }
+    get_text_structure = nd.parse_change_text(prev_text,curr_text,'Text')
+    assert expected_changes == get_text_structure 
+
 # def test_move_template():
 #     curr_wikitext = prev_wikitext.replace('\n{{Use dmy dates|date=April 2017}}',
 #                                           '{{Use dmy dates|date=April 2017}}\n',
