@@ -307,17 +307,17 @@ def parse_change_text(prev_wikitext,curr_wikitext,node_type):
             else:
                 result['Paragraph'] = dict(result.get('Paragraph',{}), **{item[0]:-1})
 
-        
+        #Get the maximum value between the sum of positives and sum of negatives
         if len(result.get('Whitespace')) > 0:
-            result['Whitespace'] = {'change':max(abs(item) for item in result['Whitespace'].values())}
+            result['Whitespace'] = {'change':max(sum(abs(item) for item in result['Whitespace'].values() if item < 0),sum(abs(item) for item in result['Whitespace'].values() if item > 0 ))}
         if len(result.get('Punctuation')) > 0:
-            result['Punctuation'] = {'change':max(abs(item) for item in result['Punctuation'].values())}
+            result['Punctuation'] = {'change':max(sum(abs(item) for item in result['Punctuation'].values() if item < 0),sum(abs(item) for item in result['Punctuation'].values() if item > 0))}
         if len(result.get('Word')) > 0:
-            result['Word'] = {'change':max(abs(item) for item in result['Word'].values())}
+            result['Word'] = {'change':max(sum(abs(item) for item in result['Word'].values() if item < 0),sum(abs(item) for item in result['Word'].values() if item > 0 ))}
         if len(result.get('Sentence')) > 0:
-            result['Sentence'] =  {'change':max(abs(item) for item in result['Sentence'].values())}
+            result['Sentence'] =  {'change':max(sum(abs(item) for item in result['Sentence'].values() if item < 0),sum(abs(item) for item in result['Sentence'].values() if item > 0 ))}
         if len(result.get('Paragraph')) > 0:
-            result['Paragraph'] = {'change':max(abs(item) for item in result['Paragraph'].values())}
+            result['Paragraph'] = {'change':max(sum(abs(item) for item in result['Paragraph'].values() if item < 0) , sum(abs(item) for item in result['Paragraph'].values() if item > 0))}
 
         return result
 
