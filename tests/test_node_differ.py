@@ -128,10 +128,10 @@ def test_text_count_english_punctuations():
 def test_change_text_count_english_punctuations():
     curr_text = "Wait for it... awesome! More things to come. Why me?"
     prev_text = "Waits for it... awesome!! More things to come. Why me?"
-    expected_changes = {'sentence_count':{'Waits for it... awesome':-1,'Wait for it... awesome':1},'word_count':{'Waits':-1,'Wait':1},
-                        "whitespace_count":{},"punctuation_count":{'!':-1},
-                        'paragraph_count':{"Waits for it... awesome!! More things to come. Why me?":-1,"Wait for it... awesome! More things to come. Why me?":1}
-                       }
+    expected_changes = {'Sentence':{'change':1},'Word':{'change':1},
+                        "Whitespace":{},"Punctuation":{'change':1},
+                        'Paragraph':{'change':1}
+                        }
     get_text_structure = nd.parse_change_text(prev_text,curr_text,'Text')
     assert expected_changes == get_text_structure
 
