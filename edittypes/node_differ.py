@@ -253,59 +253,71 @@ def parse_change_text(prev_wikitext,curr_wikitext,node_type):
         sentence_items_diff_list = list(set(curr_tokenizer['sentence_count'].items())  ^ set(prev_tokenizer['sentence_count'].items()))
         paragraphs_items_diff_list = list(set(curr_tokenizer['paragraph_count'].items())  ^ set(prev_tokenizer['paragraph_count'].items()))
 
-        result = {'whitespace_count':{}, 'punctuation_count':{}, 'word_count': {}, 'sentence_count':{}, 'paragraph_count': {} }
+        result = {'Whitespace':{}, 'Punctuation':{}, 'Word': {}, 'Sentence':{}, 'Paragraph': {} }
 
 
         #Sort whitespaces
         for item in whitespace_items_diff_list:
             if item[0] not in prev_tokenizer['whitespace_count'].keys() and item[0] in curr_tokenizer['whitespace_count'].keys():
-                result['whitespace_count'] = dict(result.get('whitespace_count',{}), **{item:1})
+                result['Whitespace'] = dict(result.get('Whitespace',{}), **{item:1})
             elif item[0] in prev_tokenizer['whitespace_count'].keys() and item[0] in curr_tokenizer['whitespace_count'].keys():
                 diff = curr_tokenizer['whitespace_count'][item[0]] - prev_tokenizer['whitespace_count'][item[0]]
-                result['whitespace_count'] = dict(result.get('whitespace_count',{}), **{item[0]:diff})
+                result['Whitespace'] = dict(result.get('Whitespace',{}), **{item[0]:diff})
             else:
-                result['whitespace_count'] = dict(result.get('whitespace_count',{}), **{item[0]:-1})
+                result['Whitespace'] = dict(result.get('Whitespace',{}), **{item[0]:-1})
 
         #Sort punctuations
         for item in punctuation_items_diff_list:
             if item[0] not in prev_tokenizer['punctuation_count'].keys() and item[0] in curr_tokenizer['punctuation_count'].keys():
-                result['punctuation_count'] = dict(result.get('punctuation_count',{}), **{item:1})
+                result['Punctuation'] = dict(result.get('Punctuation',{}), **{item:1})
             elif item[0] in prev_tokenizer['punctuation_count'].keys() and item[0] in curr_tokenizer['punctuation_count'].keys():
                 diff = curr_tokenizer['punctuation_count'][item[0]] - prev_tokenizer['punctuation_count'][item[0]]
-                result['punctuation_count'] = dict(result.get('punctuation_count',{}), ** {item[0]:diff})
+                result['Punctuation'] = dict(result.get('Punctuation',{}), ** {item[0]:diff})
             else:
-                result['punctuation_count'] = dict(result.get('punctuation_count',{}), **{item[0]:-1})
+                result['Punctuation'] = dict(result.get('Punctuation',{}), **{item[0]:-1})
 
         #Sort words
         for item in word_items_diff_list:
             if item[0] not in prev_tokenizer['word_count'].keys() and item[0] in curr_tokenizer['word_count'].keys():
-                result['word_count'] = dict(result.get('word_count',{}), **{item[0]:1})
+                result['Word'] = dict(result.get('Word',{}), **{item[0]:1})
             elif item[0] in prev_tokenizer['word_count'].keys() and item[0] in curr_tokenizer['word_count'].keys():
                 diff = curr_tokenizer['word_count'][item[0]] - prev_tokenizer['word_count'][item[0]]
-                result['word_count'] = dict(result.get('word_count',{}), **{item[0]:diff})
+                result['Word'] = dict(result.get('Word',{}), **{item[0]:diff})
             else:
-                result['word_count'] = dict(result.get('word_count',{}), **{item[0]:-1})
+                result['Word'] = dict(result.get('Word',{}), **{item[0]:-1})
 
         #Sort sentences
         for item in sentence_items_diff_list:
             if item[0] not in prev_tokenizer['sentence_count'].keys() and item[0] in curr_tokenizer['sentence_count'].keys():
-                result['sentence_count'] = dict(result.get('sentence_count',{}), **{item[0]:1})
+                result['Sentence'] = dict(result.get('Sentence',{}), **{item[0]:1})
             elif item[0] in prev_tokenizer['sentence_count'].keys() and item[0] in curr_tokenizer['sentence_count'].keys():
                 diff = curr_tokenizer['sentence_count'][item[0]] - prev_tokenizer['sentence_count'][item[0]]
-                result['sentence_count'] = dict(result.get('sentence_count',{}), **{item[0]:diff})
+                result['Sentence'] = dict(result.get('Sentence',{}), **{item[0]:diff})
             else:
-                result['sentence_count'] = dict(result.get('sentence_count',{}),** {item[0]:-1})
+                result['Sentence'] = dict(result.get('Sentence',{}),** {item[0]:-1})
 
 
         #Sort paragraphs
         for item in paragraphs_items_diff_list:
             if item[0] not in prev_tokenizer['paragraph_count'].keys() and item[0] in curr_tokenizer['paragraph_count'].keys():
-                result['paragraph_count'] = dict(result.get('paragraph_count',{}) , **{item[0]:1})
+                result['Paragraph'] = dict(result.get('Paragraph',{}) , **{item[0]:1})
             elif item[0] in prev_tokenizer['paragraph_count'].keys() and item[0] in curr_tokenizer['paragraph_count'].keys():
                 diff = curr_tokenizer['paragraph_count'][item[0]] - prev_tokenizer['paragraph_count'][item[0]]
-                result['paragraph_count'] = dict(result.get('paragraph_count',{}),**{item[0]:diff})
+                result['Paragraph'] = dict(result.get('Paragraph',{}),**{item[0]:diff})
             else:
-                result['paragraph_count'] = dict(result.get('paragraph_count',{}), **{item[0]:-1})
+                result['Paragraph'] = dict(result.get('Paragraph',{}), **{item[0]:-1})
+
+        
+        if len(result.get('Whitespace')) > 0:
+            result['Whitespace'] = {'change':max(abs(item) for item in result['Whitespace'].values())}
+        if len(result.get('Punctuation')) > 0:
+            result['Punctuation'] = {'change':max(abs(item) for item in result['Punctuation'].values())}
+        if len(result.get('Word')) > 0:
+            result['Word'] = {'change':max(abs(item) for item in result['Word'].values())}
+        if len(result.get('Sentence')) > 0:
+            result['Sentence'] =  {'change':max(abs(item) for item in result['Sentence'].values())}
+        if len(result.get('Paragraph')) > 0:
+            result['Paragraph'] = {'change':max(abs(item) for item in result['Paragraph'].values())}
 
         return result
 
