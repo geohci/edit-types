@@ -1,5 +1,6 @@
+import re  # not technically needed because part of edittypes.tokenizer but that's confusing
+
 import mwparserfromhell as mw
-import re
 from edittypes.tokenizer import *
 
 NON_ENGLISH_UNICODE = '''[\u0609\u060a\u060c\u060d\u061b\u061e\u061f\u066a\u066b\u066c
@@ -23,7 +24,7 @@ NON_ENGLISH_UNICODE = '''[\u0609\u060a\u060c\u060d\u061b\u061e\u061f\u066a\u066b
 \u205c\u205d\u205e\u2cf9\u2cfa\u2cfb\u2cfc\u2cfe\u2cff]'''
 ENGLISH_UNICODE = '[\u00b7\u00bf]'
 
-#Initialize tokenizer class
+# Initialize tokenizer class
 TOKENIZER = Tokenizer(ENGLISH_UNICODE, NON_ENGLISH_UNICODE)
     
 def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
