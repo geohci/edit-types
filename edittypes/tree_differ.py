@@ -8,11 +8,11 @@ from edittypes.constants import *
 
 
 # equivalent of main function
-def get_diff(prev_wikitext, curr_wikitext, lang='en'):
+def get_diff(prev_wikitext, curr_wikitext, lang='en', timeout=2):
     """Run through full process of getting tree diff between two wikitext revisions."""
     prev_tree = WikitextTree(wikitext=prev_wikitext, lang=lang)
     curr_tree = WikitextTree(wikitext=curr_wikitext, lang=lang)
-    d = Differ(prev_tree, curr_tree)
+    d = Differ(prev_tree, curr_tree, timeout=timeout)
     diff = d.get_corresponding_nodes()
     result = diff.post_process(prev_tree.secname_to_text, curr_tree.secname_to_text, lang=lang)
     return result
