@@ -4,7 +4,7 @@ from anytree import PostOrderIter, NodeMixin
 from anytree.util import leftsibling
 import mwparserfromhell as mw
 
-from edittypes.constants import *
+from .constants import *
 
 
 # equivalent of main function
