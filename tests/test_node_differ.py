@@ -1,7 +1,3 @@
-import copy
-import json
-
-import mwparserfromhell
 from context import nd
 from context import td
 
@@ -110,6 +106,14 @@ def test_nested_nodes_ref_temp_link():
     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
     assert expected_changes == nd.get_diff_count(diff)
 
+def test_swap_templates():
+    curr_wikitext = prev_wikitext.replace("{{commons category}}\n{{Authority control}}",
+                                          "{{Authority control}}\n{{commons category}}",
+                                          1)
+    expected_changes = {'Template':{'move':2}}
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+    assert expected_changes == nd.get_diff_count(diff)
+
 
 def test_remove_text_count_english_punctuations():
     text = "Wait for it... awesome! More things to come. Why me?"
@@ -139,9 +143,11 @@ def test_change_text_count_english_punctuations():
                         "Whitespace":{},"Punctuation":{'change':1},
                         'Paragraph':{'change':1}
                         }
-    get_text_structure = nd.parse_change_text('Text', prev_text,curr_text)
-    assert expected_changes == get_text_structure 
+    get_text_structure = nd.parse_change_text(prev_text,curr_text,'Text')
+    assert expected_changes == get_text_structure
 
+
+    
 def test_text_insert():
     curr_wikitext = prev_wikitext.replace('Aigen',
                                           'Aigen Abe',
@@ -149,6 +155,15 @@ def test_text_insert():
     expected_changes = {'Word':{'change':1}}
     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
     assert expected_changes == nd.get_diff_count(diff)
+    
+# def test_unbracketed_media():
+#     curr_wikitext = prev_wikitext.replace('===Works===\n',
+#                                           '===Works===\n<gallery>\nFile:Carl Aigen Fischmarkt.jpg|thumb|Caption\n</gallery>',
+#                                           1)
+#     expected_changes = {'Tag': {'insert': 1}, 'Media':{'insert':1}}
+#     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+#     assert expected_changes == nd.get_diff_count(diff)
+
 # def test_move_template():
 #     curr_wikitext = prev_wikitext.replace('\n{{Use dmy dates|date=April 2017}}',
 #                                           '{{Use dmy dates|date=April 2017}}\n',
@@ -166,4 +181,3 @@ def test_text_insert():
 #     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
 #     print(diff)
 #     assert expected_changes == nd.get_diff_count(diff)
-
