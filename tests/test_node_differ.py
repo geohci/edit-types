@@ -143,7 +143,7 @@ def test_change_text_count_english_punctuations():
                         "Whitespace":{},"Punctuation":{'change':1},
                         'Paragraph':{'change':1}
                         }
-    get_text_structure = nd.parse_change_text(prev_text,curr_text,'Text')
+    get_text_structure = nd.parse_change_text('Text', prev_text,curr_text)
     assert expected_changes == get_text_structure
 
 
