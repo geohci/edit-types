@@ -1,8 +1,6 @@
 import copy
 import json
 
-import mwparserfromhell
-
 from context import td  # tree-differ
 
 # Basic wikitext to play with that has most of the things we're interested in (image, categories, templates, etc.)
