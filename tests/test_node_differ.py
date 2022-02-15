@@ -111,13 +111,24 @@ def test_nested_nodes_ref_temp_link():
     assert expected_changes == nd.get_diff_count(diff)
 
 
-def test_text_count_english_punctuations():
+def test_remove_text_count_english_punctuations():
     text = "Wait for it... awesome! More things to come. Why me?"
-    expected_changes = {'sentence_count':{'Wait for it... awesome':1,' More things to come':1, ' Why me':1},'word_count':{'Wait':1,'for':1,'it':1,'awesome':1,'More':1,
-                        'things':1,'to':1,'come':1,'Why':1,'me':1},"whitespace_count":{' ':9},"punctuation_count":{'!':1,'?':1,'.':1,'...':1},
-                        'paragraph_count':{'Wait for it... awesome! More things to come. Why me?':1}
+    expected_changes = {'Sentence':{'remove':3},'Word':{'remove':10},"Whitespace":{'remove':9},"Punctuation":{'remove':4},
+                        'Paragraph':{'remove':1}
                        }
-    get_text_structure = nd.parse_text(text,'Text')
+    
+    get_text_structure = nd.parse_change_text('Text',text,'')
+    
+    assert expected_changes == get_text_structure
+
+def test_insert_text_count_english_punctuations():
+    text = "Wait for it... awesome! More things to come. Why me?"
+    expected_changes = {'Sentence':{'insert':3},'Word':{'insert':10},"Whitespace":{'insert':9},"Punctuation":{'insert':4},
+                        'Paragraph':{'insert':1}
+                       }
+    
+    get_text_structure = nd.parse_change_text('Text','',text)
+    
     assert expected_changes == get_text_structure
 
 
@@ -128,9 +139,16 @@ def test_change_text_count_english_punctuations():
                         "Whitespace":{},"Punctuation":{'change':1},
                         'Paragraph':{'change':1}
                         }
-    get_text_structure = nd.parse_change_text(prev_text,curr_text,'Text')
+    get_text_structure = nd.parse_change_text('Text', prev_text,curr_text)
     assert expected_changes == get_text_structure 
 
+def test_text_insert():
+    curr_wikitext = prev_wikitext.replace('Aigen',
+                                          'Aigen Abe',
+                                          1)
+    expected_changes = {'Word':{'change':1}}
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+    assert expected_changes == nd.get_diff_count(diff)
 # def test_move_template():
 #     curr_wikitext = prev_wikitext.replace('\n{{Use dmy dates|date=April 2017}}',
 #                                           '{{Use dmy dates|date=April 2017}}\n',
