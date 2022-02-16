@@ -148,13 +148,13 @@ def test_change_text_count_english_punctuations():
 
 
     
-# def test_text_insert():
-#     curr_wikitext = prev_wikitext.replace('Aigen',
-#                                           'Aigen Abe',
-#                                           1)
-#     expected_changes = {'Word':{'change':1}}
-#     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
-#     assert expected_changes == nd.get_diff_count(diff)
+def test_text_change():
+    curr_wikitext = prev_wikitext.replace('Aigen was born in Olomouc on 8 October 1685, the son of a goldsmith.',
+                                          'Aigen-Abe was born in Olomouc on 9 October 1685, the daughter of a goldsmith.',
+                                          1)
+    expected_changes = {'Paragraph':{'change':1}, 'Sentence':{'change':1}, 'Word':{'change':3},'Punctuation':{'change':1},'Whitespace':{},'Punctuation':{'change':1}}
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+    assert expected_changes == nd.get_diff_count(diff)
     
 # def test_unbracketed_media():
 #     curr_wikitext = prev_wikitext.replace('===Works===\n',

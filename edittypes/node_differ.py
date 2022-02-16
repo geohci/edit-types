@@ -371,7 +371,7 @@ def parse_change_text(node_type, prev_wikitext='',curr_wikitext=''):
                     if len(item[1]) > 1:
                        result['Whitespace'][item[0]] =  item[1]
                     else:
-                        result['Whitespace'] = dict(result.get('Whitespace',{}), **{item:1})
+                        result['Whitespace'] = dict(result.get('Whitespace',{}), **{item[0]:1})
 
                 elif item[0] in prev_tokenizer['whitespace_count'].keys() and item[0] in curr_tokenizer['whitespace_count'].keys():
                     diff = curr_tokenizer['whitespace_count'][item[0]] - prev_tokenizer['whitespace_count'][item[0]]
@@ -388,7 +388,7 @@ def parse_change_text(node_type, prev_wikitext='',curr_wikitext=''):
                     if item[1] > 1:
                        result['Punctuation'][item[0]] =  item[1]
                     else:
-                        result['Punctuation'] = dict(result.get('Punctuation',{}), **{item:1})
+                        result['Punctuation'] = dict(result.get('Punctuation',{}), **{item[0]:1})
                 elif item[0] in prev_tokenizer['punctuation_count'].keys() and item[0] in curr_tokenizer['punctuation_count'].keys():
                     diff = curr_tokenizer['punctuation_count'][item[0]] - prev_tokenizer['punctuation_count'][item[0]]
                     result['Punctuation'] = dict(result.get('Punctuation',{}), ** {item[0]:diff})
@@ -480,7 +480,7 @@ def parse_change_text(node_type, prev_wikitext='',curr_wikitext=''):
             #Sort whitespaces
             for item in whitespace_items_diff_list:
                 if item[0] not in prev_tokenizer['whitespace_count'].keys() and item[0] in curr_tokenizer['whitespace_count'].keys():
-                    result['Whitespace'] = dict(result.get('Whitespace',{}), **{item:1})
+                    result['Whitespace'] = dict(result.get('Whitespace',{}), **{item[0]:1})
                 elif item[0] in prev_tokenizer['whitespace_count'].keys() and item[0] in curr_tokenizer['whitespace_count'].keys():
                     diff = curr_tokenizer['whitespace_count'][item[0]] - prev_tokenizer['whitespace_count'][item[0]]
                     result['Whitespace'] = dict(result.get('Whitespace',{}), **{item[0]:diff})
@@ -490,7 +490,7 @@ def parse_change_text(node_type, prev_wikitext='',curr_wikitext=''):
             #Sort punctuations
             for item in punctuation_items_diff_list:
                 if item[0] not in prev_tokenizer['punctuation_count'].keys() and item[0] in curr_tokenizer['punctuation_count'].keys():
-                    result['Punctuation'] = dict(result.get('Punctuation',{}), **{item:1})
+                    result['Punctuation'] = dict(result.get('Punctuation',{}), **{item[0]:1})
                 elif item[0] in prev_tokenizer['punctuation_count'].keys() and item[0] in curr_tokenizer['punctuation_count'].keys():
                     diff = curr_tokenizer['punctuation_count'][item[0]] - prev_tokenizer['punctuation_count'][item[0]]
                     result['Punctuation'] = dict(result.get('Punctuation',{}), ** {item[0]:diff})
@@ -564,48 +564,51 @@ def get_diff_count(result):
     edit_types = {}
     for r in result['remove']:
         text = r['text']
-        is_edit_type_found,edit_type = is_edit_type(text,r['type'])
-        if is_edit_type_found:
-            if edit_types.get(edit_type,{}):
-                edit_types[edit_type]['remove'] = edit_types[edit_type].get('remove', 0) + 1
-            else:
-                edit_types[edit_type] = {'remove':1}
-
-        is_text_change_found = parse_change_text(r['type'], text,'')
-        if is_text_change_found:
-            for k,v in is_text_change_found.items():
-                edit_types[k] = v
-
-
-    for i in result['insert']:
-        text = i['text']
-        is_edit_type_found,edit_type = is_edit_type(text,i['type'])
-        #check if edit_type in edit types dictionary
-        if is_edit_type_found:
-            if edit_types.get(edit_type,{}):
-                edit_types[edit_type]['insert'] = edit_types[edit_type].get('insert', 0) + 1
-            else:
-                edit_types[edit_type] = {'insert':1}
-
-        is_text_change_found = parse_change_text(i['type'], text,'')
-        if is_text_change_found:
-            for k,v in is_text_change_found.items():
-                edit_types[k] = v
-
-    for c in result['change']:
-        if c['prev']['type'] == c['curr']['type']:
-            is_edit_type_found,edit_type = is_change_in_edit_type(c['prev']['text'],c['curr']['text'],c['prev']['type'])
-            #check if edit_type in edit types dictionary
-            if is_edit_type_found:
-                if edit_types.get(edit_type,{}):
-                    edit_types[edit_type]['change'] = edit_types[edit_type].get('change', 0) + 1
-                else:
-                    edit_types[edit_type] = {'change':1}
-
-            is_text_change_found = parse_change_text(c['prev']['type'], c['prev']['text'],c['curr']['text'])
+        if r['type'] == 'Text':
+            is_text_change_found = parse_change_text(r['type'], text,'')
             if is_text_change_found:
                 for k,v in is_text_change_found.items():
                     edit_types[k] = v
+        else:
+            is_edit_type_found,edit_type = is_edit_type(text,r['type'])
+            if is_edit_type_found:
+                if edit_types.get(edit_type,{}):
+                    edit_types[edit_type]['remove'] = edit_types[edit_type].get('remove', 0) + 1
+                else:
+                    edit_types[edit_type] = {'remove':1}
+        
+
+    for i in result['insert']:
+        text = i['text']
+        if i['type'] == 'Text':
+            is_text_change_found = parse_change_text(i['type'], text,'')
+            if is_text_change_found:
+                for k,v in is_text_change_found.items():
+                    edit_types[k] = v
+        else:
+            is_edit_type_found,edit_type = is_edit_type(text,i['type'])
+            #check if edit_type in edit types dictionary
+            if is_edit_type_found:
+                if edit_types.get(edit_type,{}):
+                    edit_types[edit_type]['insert'] = edit_types[edit_type].get('insert', 0) + 1
+                else:
+                    edit_types[edit_type] = {'insert':1}
+
+    for c in result['change']:
+        if c['prev']['type'] == c['curr']['type']:
+            if c['prev']['type'] == 'Text':
+                is_text_change_found = parse_change_text(c['prev']['type'], c['prev']['text'],c['curr']['text'])
+                if is_text_change_found:
+                    for k,v in is_text_change_found.items():
+                        edit_types[k] = v
+            else:
+                is_edit_type_found,edit_type = is_change_in_edit_type(c['prev']['text'],c['curr']['text'],c['prev']['type'])
+                #check if edit_type in edit types dictionary
+                if is_edit_type_found:
+                    if edit_types.get(edit_type,{}):
+                        edit_types[edit_type]['change'] = edit_types[edit_type].get('change', 0) + 1
+                    else:
+                        edit_types[edit_type] = {'change':1}
 
     for m in result['move']:
         text = m['prev']['text']       
