@@ -49,8 +49,11 @@ def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
 
         if node_type == 'Template':
             prev_temp_dict = { temp.split('=',maxsplit=1)[0].strip():temp.split('=',maxsplit=1)[1] for temp in prev_parsed_text.filter_templates(recursive=False)[0].params}
+            prev_temp_dict = dict(prev_temp_dict, **{'template_name':prev_parsed_text.filter_templates(recursive=False)[0].title})
+            
             curr_temp_dict = { temp.split('=',maxsplit=1)[0].strip():temp.split('=',maxsplit=1)[1] for temp in curr_parsed_text.filter_templates(recursive=False)[0].params}
-
+            curr_temp_dict = dict(curr_temp_dict, **{'template_name':prev_parsed_text.filter_templates(recursive=False)[0].title})
+            
             #Get the difference between template parameters. If it is more than 0, then a change occured
             if len(set(curr_temp_dict.items()) ^ set(prev_temp_dict.items())) > 0:
                 return True, 'Template'
@@ -236,93 +239,133 @@ def is_edit_type(wikitext, node_type):
             return True, 'External Link'
     return False, None
 
-def parse_text(wikitext, node_type):
+
+def parse_change_text(node_type, prev_wikitext='',curr_wikitext=''):
     if node_type == 'Text':
-        return TOKENIZER.tokenize_and_get_occurence(wikitext)
+        if prev_wikitext == '' and curr_wikitext != '':
+            edittype = 'insert'
+        elif prev_wikitext != '' and curr_wikitext == '':
+            edittype = 'remove'
+        elif prev_wikitext != '' and curr_wikitext != '':
+            edittype = 'change'
+        else:
+            edittype = None
 
-    return None
+        
+        if edittype:
+            prev_tokenizer = TOKENIZER.tokenize_and_get_occurence(prev_wikitext)
+            curr_tokenizer = TOKENIZER.tokenize_and_get_occurence(curr_wikitext)
 
-def parse_change_text(prev_wikitext,curr_wikitext,node_type):
-    if node_type == 'Text':
-        prev_tokenizer = TOKENIZER.tokenize_and_get_occurence(prev_wikitext)
-        curr_tokenizer = TOKENIZER.tokenize_and_get_occurence(curr_wikitext)
+            #Gets the list of differences. Counts both added and removed whitespaces
+            whitespace_items_diff_list = list(set(curr_tokenizer['whitespace_count'].items())  ^ set(prev_tokenizer['whitespace_count'].items()))
+            punctuation_items_diff_list = list(set(curr_tokenizer['punctuation_count'].items())  ^ set(prev_tokenizer['punctuation_count'].items()))
+            word_items_diff_list = list(set(curr_tokenizer['word_count'].items())  ^ set(prev_tokenizer['word_count'].items()))
+            sentence_items_diff_list = list(set(curr_tokenizer['sentence_count'].items())  ^ set(prev_tokenizer['sentence_count'].items()))
+            paragraphs_items_diff_list = list(set(curr_tokenizer['paragraph_count'].items())  ^ set(prev_tokenizer['paragraph_count'].items()))
 
-        #Gets the list of differences. Counts both added and removed whitespaces
-        whitespace_items_diff_list = list(set(curr_tokenizer['whitespace_count'].items())  ^ set(prev_tokenizer['whitespace_count'].items()))
-        punctuation_items_diff_list = list(set(curr_tokenizer['punctuation_count'].items())  ^ set(prev_tokenizer['punctuation_count'].items()))
-        word_items_diff_list = list(set(curr_tokenizer['word_count'].items())  ^ set(prev_tokenizer['word_count'].items()))
-        sentence_items_diff_list = list(set(curr_tokenizer['sentence_count'].items())  ^ set(prev_tokenizer['sentence_count'].items()))
-        paragraphs_items_diff_list = list(set(curr_tokenizer['paragraph_count'].items())  ^ set(prev_tokenizer['paragraph_count'].items()))
-
-        result = {'Whitespace':{}, 'Punctuation':{}, 'Word': {}, 'Sentence':{}, 'Paragraph': {} }
-
-
-        #Sort whitespaces
-        for item in whitespace_items_diff_list:
-            if item[0] not in prev_tokenizer['whitespace_count'].keys() and item[0] in curr_tokenizer['whitespace_count'].keys():
-                result['Whitespace'] = dict(result.get('Whitespace',{}), **{item:1})
-            elif item[0] in prev_tokenizer['whitespace_count'].keys() and item[0] in curr_tokenizer['whitespace_count'].keys():
-                diff = curr_tokenizer['whitespace_count'][item[0]] - prev_tokenizer['whitespace_count'][item[0]]
-                result['Whitespace'] = dict(result.get('Whitespace',{}), **{item[0]:diff})
-            else:
-                result['Whitespace'] = dict(result.get('Whitespace',{}), **{item[0]:-1})
-
-        #Sort punctuations
-        for item in punctuation_items_diff_list:
-            if item[0] not in prev_tokenizer['punctuation_count'].keys() and item[0] in curr_tokenizer['punctuation_count'].keys():
-                result['Punctuation'] = dict(result.get('Punctuation',{}), **{item:1})
-            elif item[0] in prev_tokenizer['punctuation_count'].keys() and item[0] in curr_tokenizer['punctuation_count'].keys():
-                diff = curr_tokenizer['punctuation_count'][item[0]] - prev_tokenizer['punctuation_count'][item[0]]
-                result['Punctuation'] = dict(result.get('Punctuation',{}), ** {item[0]:diff})
-            else:
-                result['Punctuation'] = dict(result.get('Punctuation',{}), **{item[0]:-1})
-
-        #Sort words
-        for item in word_items_diff_list:
-            if item[0] not in prev_tokenizer['word_count'].keys() and item[0] in curr_tokenizer['word_count'].keys():
-                result['Word'] = dict(result.get('Word',{}), **{item[0]:1})
-            elif item[0] in prev_tokenizer['word_count'].keys() and item[0] in curr_tokenizer['word_count'].keys():
-                diff = curr_tokenizer['word_count'][item[0]] - prev_tokenizer['word_count'][item[0]]
-                result['Word'] = dict(result.get('Word',{}), **{item[0]:diff})
-            else:
-                result['Word'] = dict(result.get('Word',{}), **{item[0]:-1})
-
-        #Sort sentences
-        for item in sentence_items_diff_list:
-            if item[0] not in prev_tokenizer['sentence_count'].keys() and item[0] in curr_tokenizer['sentence_count'].keys():
-                result['Sentence'] = dict(result.get('Sentence',{}), **{item[0]:1})
-            elif item[0] in prev_tokenizer['sentence_count'].keys() and item[0] in curr_tokenizer['sentence_count'].keys():
-                diff = curr_tokenizer['sentence_count'][item[0]] - prev_tokenizer['sentence_count'][item[0]]
-                result['Sentence'] = dict(result.get('Sentence',{}), **{item[0]:diff})
-            else:
-                result['Sentence'] = dict(result.get('Sentence',{}),** {item[0]:-1})
+            result = {'Whitespace':{}, 'Punctuation':{}, 'Word': {}, 'Sentence':{}, 'Paragraph': {} }
 
 
-        #Sort paragraphs
-        for item in paragraphs_items_diff_list:
-            if item[0] not in prev_tokenizer['paragraph_count'].keys() and item[0] in curr_tokenizer['paragraph_count'].keys():
-                result['Paragraph'] = dict(result.get('Paragraph',{}) , **{item[0]:1})
-            elif item[0] in prev_tokenizer['paragraph_count'].keys() and item[0] in curr_tokenizer['paragraph_count'].keys():
-                diff = curr_tokenizer['paragraph_count'][item[0]] - prev_tokenizer['paragraph_count'][item[0]]
-                result['Paragraph'] = dict(result.get('Paragraph',{}),**{item[0]:diff})
-            else:
-                result['Paragraph'] = dict(result.get('Paragraph',{}), **{item[0]:-1})
+            #Sort whitespaces
+            for item in whitespace_items_diff_list:
+                if item[0] not in prev_tokenizer['whitespace_count'].keys() and item[0] in curr_tokenizer['whitespace_count'].keys():
+                    if item[1] > 1:
+                       result['Whitespace'][item[0]] =  item[1]
+                    else:
+                        result['Whitespace'] = dict(result.get('Whitespace',{}), **{item[0]:1})
+                elif item[0] in prev_tokenizer['whitespace_count'].keys() and item[0] in curr_tokenizer['whitespace_count'].keys():
+                    diff = curr_tokenizer['whitespace_count'][item[0]] - prev_tokenizer['whitespace_count'][item[0]]
+                    result['Whitespace'] = dict(result.get('Whitespace',{}), **{item[0]:diff})
+                else:
+                    if item[1] > 1:
+                       result['Whitespace'][item[0]] =  item[1]
+                    else:
+                        result['Whitespace'] = dict(result.get('Whitespace',{}), **{item[0]:-1})
 
-        #Get the maximum value between the sum of positives and sum of negatives
-        if len(result.get('Whitespace')) > 0:
-            result['Whitespace'] = {'change':max(sum(abs(item) for item in result['Whitespace'].values() if item < 0),sum(abs(item) for item in result['Whitespace'].values() if item > 0 ))}
-        if len(result.get('Punctuation')) > 0:
-            result['Punctuation'] = {'change':max(sum(abs(item) for item in result['Punctuation'].values() if item < 0),sum(abs(item) for item in result['Punctuation'].values() if item > 0))}
-        if len(result.get('Word')) > 0:
-            result['Word'] = {'change':max(sum(abs(item) for item in result['Word'].values() if item < 0),sum(abs(item) for item in result['Word'].values() if item > 0 ))}
-        if len(result.get('Sentence')) > 0:
-            result['Sentence'] =  {'change':max(sum(abs(item) for item in result['Sentence'].values() if item < 0),sum(abs(item) for item in result['Sentence'].values() if item > 0 ))}
-        if len(result.get('Paragraph')) > 0:
-            result['Paragraph'] = {'change':max(sum(abs(item) for item in result['Paragraph'].values() if item < 0) , sum(abs(item) for item in result['Paragraph'].values() if item > 0))}
+            #Sort punctuations
+            for item in punctuation_items_diff_list:
+                if item[0] not in prev_tokenizer['punctuation_count'].keys() and item[0] in curr_tokenizer['punctuation_count'].keys():
+                    if item[1] > 1:
+                       result['Punctuation'][item[0]] =  item[1]
+                    else:
+                        result['Punctuation'] = dict(result.get('Punctuation',{}), **{item[0]:1})
 
-        return result
+                elif item[0] in prev_tokenizer['punctuation_count'].keys() and item[0] in curr_tokenizer['punctuation_count'].keys():
+                    diff = curr_tokenizer['punctuation_count'][item[0]] - prev_tokenizer['punctuation_count'][item[0]]
+                    result['Punctuation'] = dict(result.get('Punctuation',{}), ** {item[0]:diff})
+                else:
+                    if item[1] > 1:
+                       result['Punctuation'][item[0]] =  item[1]
+                    else:
+                        result['Punctuation'] = dict(result.get('Punctuation',{}), **{item[0]:-1})
+                    
 
-    return None
+            #Sort words
+            for item in word_items_diff_list:
+                if item[0] not in prev_tokenizer['word_count'].keys() and item[0] in curr_tokenizer['word_count'].keys():
+                    if item[1] > 1:
+                       result['Word'][item[0]] =  item[1]
+                    else:
+                        result['Word'] = dict(result.get('Word',{}), **{item[0]:1})
+                elif item[0] in prev_tokenizer['word_count'].keys() and item[0] in curr_tokenizer['word_count'].keys():
+                    diff = curr_tokenizer['word_count'][item[0]] - prev_tokenizer['word_count'][item[0]]
+                    result['Word'] = dict(result.get('Word',{}), **{item[0]:diff})
+                else:
+                    if item[1] > 1:
+                       result['Word'][item[0]] =  item[1]
+                    else:
+                        result['Word'] = dict(result.get('Word',{}), **{item[0]:-1})
+                    
+
+            #Sort sentences
+            for item in sentence_items_diff_list:
+                if item[0] not in prev_tokenizer['sentence_count'].keys() and item[0] in curr_tokenizer['sentence_count'].keys():
+                    if item[1] > 1:
+                       result['Sentence'][item[0]] =  item[1]
+                    else:
+                        result['Sentence'] = dict(result.get('Sentence',{}), **{item[0]:1})
+
+                elif item[0] in prev_tokenizer['sentence_count'].keys() and item[0] in curr_tokenizer['sentence_count'].keys():
+                    diff = curr_tokenizer['sentence_count'][item[0]] - prev_tokenizer['sentence_count'][item[0]]
+                    result['Sentence'] = dict(result.get('Sentence',{}), **{item[0]:diff})
+                else:
+                    if item[1] > 1:
+                       result['Sentence'][item[0]] =  item[1]
+                    else:
+                        result['Sentence'] = dict(result.get('Sentence',{}),** {item[0]:-1})
+
+
+            #Sort paragraphs
+            for item in paragraphs_items_diff_list:
+                if item[0] not in prev_tokenizer['paragraph_count'].keys() and item[0] in curr_tokenizer['paragraph_count'].keys():
+                    if item[1] > 1:
+                       result['Paragraph'][item[0]] =  item[1]
+                    else:
+                        result['Paragraph'] = dict(result.get('Paragraph',{}) , **{item[0]:1})
+                elif item[0] in prev_tokenizer['paragraph_count'].keys() and item[0] in curr_tokenizer['paragraph_count'].keys():
+                    diff = curr_tokenizer['paragraph_count'][item[0]] - prev_tokenizer['paragraph_count'][item[0]]
+                    result['Paragraph'] = dict(result.get('Paragraph',{}),**{item[0]:diff})
+                else:
+                    if item[1] > 1:
+                       result['Paragraph'][item[0]] =  item[1]
+                    else:
+                        result['Paragraph'] = dict(result.get('Paragraph',{}), **{item[0]:-1})
+
+            #Get the maximum value between the sum of positives and sum of negatives
+            if len(result.get('Whitespace')) > 0:
+                result['Whitespace'] = {edittype:max(sum(abs(item) for item in result['Whitespace'].values() if item < 0),sum(abs(item) for item in result['Whitespace'].values() if item > 0 ))}
+            if len(result.get('Punctuation')) > 0:
+                result['Punctuation'] = {edittype:max(sum(abs(item) for item in result['Punctuation'].values() if item < 0),sum(abs(item) for item in result['Punctuation'].values() if item > 0))}
+            if len(result.get('Word')) > 0:
+                result['Word'] = {edittype:max(sum(abs(item) for item in result['Word'].values() if item < 0),sum(abs(item) for item in result['Word'].values() if item > 0 ))}
+            if len(result.get('Sentence')) > 0:
+                result['Sentence'] =  {edittype:max(sum(abs(item) for item in result['Sentence'].values() if item < 0),sum(abs(item) for item in result['Sentence'].values() if item > 0 ))}
+            if len(result.get('Paragraph')) > 0:
+                result['Paragraph'] = {edittype:max(sum(abs(item) for item in result['Paragraph'].values() if item < 0) , sum(abs(item) for item in result['Paragraph'].values() if item > 0))}
+
+            return result
+
+        return None
 
 def get_diff_count(result):
     """ Gets the edit type count of a diff
@@ -340,32 +383,51 @@ def get_diff_count(result):
     edit_types = {}
     for r in result['remove']:
         text = r['text']
-        is_edit_type_found,edit_type = is_edit_type(text,r['type'])
-        if is_edit_type_found:
-            if edit_types.get(edit_type,{}):
-                edit_types[edit_type]['remove'] = edit_types[edit_type].get('remove', 0) + 1
-            else:
-                edit_types[edit_type] = {'remove':1}
+        if r['type'] == 'Text':
+            is_text_change_found = parse_change_text(r['type'], text,'')
+            if is_text_change_found:
+                for k,v in is_text_change_found.items():
+                    edit_types[k] = v
+        else:
+            is_edit_type_found,edit_type = is_edit_type(text,r['type'])
+            if is_edit_type_found:
+                if edit_types.get(edit_type,{}):
+                    edit_types[edit_type]['remove'] = edit_types[edit_type].get('remove', 0) + 1
+                else:
+                    edit_types[edit_type] = {'remove':1}
+        
 
     for i in result['insert']:
         text = i['text']
-        is_edit_type_found,edit_type = is_edit_type(text,i['type'])
-        #check if edit_type in edit types dictionary
-        if is_edit_type_found:
-            if edit_types.get(edit_type,{}):
-                edit_types[edit_type]['insert'] = edit_types[edit_type].get('insert', 0) + 1
-            else:
-                edit_types[edit_type] = {'insert':1}
-
-    for c in result['change']:
-        if c['prev']['type'] == c['curr']['type']:
-            is_edit_type_found,edit_type = is_change_in_edit_type(c['prev']['text'],c['curr']['text'],c['prev']['type'])
+        if i['type'] == 'Text':
+            is_text_change_found = parse_change_text(i['type'], text,'')
+            if is_text_change_found:
+                for k,v in is_text_change_found.items():
+                    edit_types[k] = v
+        else:
+            is_edit_type_found,edit_type = is_edit_type(text,i['type'])
             #check if edit_type in edit types dictionary
             if is_edit_type_found:
                 if edit_types.get(edit_type,{}):
-                    edit_types[edit_type]['change'] = edit_types[edit_type].get('change', 0) + 1
+                    edit_types[edit_type]['insert'] = edit_types[edit_type].get('insert', 0) + 1
                 else:
-                    edit_types[edit_type] = {'change':1}
+                    edit_types[edit_type] = {'insert':1}
+
+    for c in result['change']:
+        if c['prev']['type'] == c['curr']['type']:
+            if c['prev']['type'] == 'Text':
+                is_text_change_found = parse_change_text(c['prev']['type'], c['prev']['text'],c['curr']['text'])
+                if is_text_change_found:
+                    for k,v in is_text_change_found.items():
+                        edit_types[k] = v
+            else:
+                is_edit_type_found,edit_type = is_change_in_edit_type(c['prev']['text'],c['curr']['text'],c['prev']['type'])
+                #check if edit_type in edit types dictionary
+                if is_edit_type_found:
+                    if edit_types.get(edit_type,{}):
+                        edit_types[edit_type]['change'] = edit_types[edit_type].get('change', 0) + 1
+                    else:
+                        edit_types[edit_type] = {'change':1}
 
     for m in result['move']:
         text = m['prev']['text']       
