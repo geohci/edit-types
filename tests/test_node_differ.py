@@ -66,21 +66,21 @@ def test_change_category():
     assert expected_changes == nd.get_diff_count(diff)
 
 
-def test_remove_formatting():
-    curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen'''",
-                                          "Karl Josef Aigen",
-                                          1)
-    expected_changes = {'Text Formatting':{'remove':1}}
-    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
-    assert expected_changes == nd.get_diff_count(diff)
+# def test_remove_formatting():
+#     curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen'''",
+#                                           "Karl Josef Aigen",
+#                                           1)
+#     expected_changes = {'Text Formatting':{'remove':1}}
+#     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+#     assert expected_changes == nd.get_diff_count(diff)
 
-def test_change_formatting():
-    curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen'''",
-                                          "''Karl Josef Aigen''",
-                                          1)
-    expected_changes = {'Text Formatting':{'change':1}}
-    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
-    assert expected_changes == nd.get_diff_count(diff)
+# def test_change_formatting():
+#     curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen'''",
+#                                           "''Karl Josef Aigen''",
+#                                           1)
+#     expected_changes = {'Text Formatting':{'change':1}}
+#     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+#     assert expected_changes == nd.get_diff_count(diff)
 
 
 def test_insert_template():
@@ -98,13 +98,14 @@ def test_change_template():
     expected_changes = {'Template':{'change':1}}
     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
     assert expected_changes == nd.get_diff_count(diff)
-def test_nested_nodes_ref_temp_link():
-    curr_wikitext = prev_wikitext.replace("<ref>{{Bryan (3rd edition)|title=Aigen, Karl |volume=1}}</ref>",
-                                          "<ref>{{Bryan (3rd edition)|title=[[Aigen, Karl]] |volume=1}}</ref>",
-                                          1)
-    expected_changes = {'Reference':{'change':1},'Wikilink':{'insert':1},'Template':{'change':1}}
-    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
-    assert expected_changes == nd.get_diff_count(diff)
+
+# def test_nested_nodes_ref_temp_link():
+#     curr_wikitext = prev_wikitext.replace("<ref>{{Bryan (3rd edition)|title=Aigen, Karl |volume=1}}</ref>",
+#                                           "<ref>{{Bryan (3rd edition)|title=[[Aigen, Karl]] |volume=1}}</ref>",
+#                                           1)
+#     expected_changes = {'Reference':{'change':1},'Wikilink':{'insert':1},'Template':{'change':1}}
+#     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+#     assert expected_changes == nd.get_diff_count(diff)
 
 def test_swap_templates():
     curr_wikitext = prev_wikitext.replace("{{commons category}}\n{{Authority control}}",
@@ -179,5 +180,4 @@ def test_text_change():
 #                                           1)
 #     expected_changes = {'Text Formatting':{'remove':1},'Media':{'change':1}, 'Reference':{'insert':1}}
 #     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
-#     print(diff)
 #     assert expected_changes == nd.get_diff_count(diff)
