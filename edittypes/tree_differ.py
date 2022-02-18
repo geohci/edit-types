@@ -10,6 +10,10 @@ from edittypes.constants import *
 # equivalent of main function
 def get_diff(prev_wikitext, curr_wikitext, lang='en', timeout=2):
     """Run through full process of getting tree diff between two wikitext revisions."""
+    # To provide proper structure, need all content to be nested under a section
+    if not prev_wikitext.startswith('==') and not curr_wikitext.startswith('=='):
+        prev_wikitext = '==Lede==\n' + prev_wikitext
+        curr_wikitext = '==Lede==\n' + curr_wikitext
     prev_tree = WikitextTree(wikitext=prev_wikitext, lang=lang)
     curr_tree = WikitextTree(wikitext=curr_wikitext, lang=lang)
     d = Differ(prev_tree, curr_tree, timeout=timeout)
@@ -31,6 +35,31 @@ def simple_node_class(mwnode, lang='en'):
                 nc = 'Media'
             elif n_prefix in [c.lower() for c in CAT_PREFIXES + CAT_ALIASES.get(lang, [])]:
                 nc = 'Category'
+        elif nc == 'Tag':
+            tag_type = str(mwnode.tag)
+            # https://en.wikipedia.org/wiki/Help:Wikitext
+            # bold, italic, strikethrough, underline
+            # horizontal rule (hr is not really text formatting but close enough)
+            # pre and nowiki are for mono-spaced text (I leave out `code` because it generally contains code not text)
+            # small / big / sub / sup all affect text size
+            if tag_type in ('b', 'i', 's', 'u', 'del', 'ins',
+                            'hr',
+                            'pre', 'nowiki',
+                            'small', 'big', 'sub', 'sup'):
+                return 'Text Formatting'
+            elif tag_type in ('li', 'dt', 'dd'):
+                return 'List'
+            elif tag_type == 'table':
+                return 'Table'
+            elif tag_type in ('th', 'tr', 'td'):
+                return 'Table Element'
+            elif tag_type == 'gallery':
+                return 'Gallery'
+            elif tag_type == 'ref':
+                return 'Reference'
+            # any others I missed -- e.g., div, meta, etc.
+            else:
+                return tag_type.capitalize() + ' Tag'
         return nc
 
 
@@ -62,10 +91,17 @@ def extract_text(mwnode, lang='en'):
             return mwnode.title.strip_code()
     elif ntype == 'ExternalLink' and mwnode.title:
         return mwnode.title.strip_code()
-    # mwparserfromhell doesn't handle div/gallery well
-    elif ntype == 'Tag' and mwnode.tag not in ('div', 'gallery'):
+    # tables can have tons of nested references etc. so can't just go through standard strip_code
+    elif ntype == 'Table':
+        # don't collapse whitespace for tables because otherwise strip_code sometimes merges text across cells
+        return mwnode.contents.strip_code(collapse=False)
+    # divs/galleries almost never have true text content and can be super messy so best ignored when building Text
+    elif ntype in ('Text Formatting', 'Reference'):
         return mwnode.contents.strip_code()
-    else:  # Heading, Template, Comment, Argument, Category, Media, certain tags, URLs without display text
+    # Heading, Template, Comment, Argument, Category, Media, URLs without display text
+    # Tags not listed here (div, gallery, etc.)
+    # Table elements (they duplicate the text if included)
+    else:
         return ''
 
 
@@ -129,7 +165,18 @@ class OrderedNode(NodeMixin):
         <--rest-of-tree-- Reference <--child-of-- Template (cite web) <--child-of-- WikiLink (Gallery)
                                                                 ^--------child-of-- External Link (http://digital...)
         """
-        wt = mw.parse(self.text)
+        if self.ntype == 'Gallery':
+            # strip leading / trailing gallery tags so parser correctly parses everything in between
+            # otherwise links, formatting, etc. is treated as text
+            gallery_start = self.text.find('>')
+            gallery_end = self.text.rfind('<')
+            try:
+                # the break is a hack; it'll be skipped in the ifilter loop; otherwise first image skipped
+                wt = mw.parse('<br>' + self.text[gallery_start+1:gallery_end])
+            except Exception:  # fallback
+                wt = mw.parse(self.text)
+        else:
+            wt = mw.parse(self.text)
         parent_node = self
         base_offset = self.char_offset
         parent_ranges = [(0, len(wt), self)]  # (start idx of node, end idx of node, node object)
@@ -140,7 +187,7 @@ class OrderedNode(NodeMixin):
             if ntype == 'Text':
                 # media w/o bracket will be IDed as text by mwparserfromhell
                 # templates / galleries are where we find this nested media
-                if self.ntype == 'Template' or (self.ntype == 'Tag' and self.text.startswith('<gallery')):
+                if self.ntype == 'Template' or self.ntype == 'Gallery':
                     media = find_nested_media(str(nn))
                     for m in media:
                         nn_node = OrderedNode(f'Media: {m[:10]}...',
@@ -149,6 +196,12 @@ class OrderedNode(NodeMixin):
                                               char_offset=base_offset + wt.find(str(m), parent_ranges[0][0]),
                                               section=self.section,
                                               parent=self)
+            # tables are very highly-structured and produce a ton of nodes (each cell and more)
+            # so we just extract links, formatting, etc. that appears in the table and skip the cells
+            # because changes to those will generally be caught in the overall table changes and text changes
+            # this leads to much faster parsing in exchange for not knowing how many table cells were edited
+            elif ntype == 'Table Element':
+                pass
             else:
                 node_start = wt.find(str(nn), parent_ranges[0][0])  # start looking from the start of the latest node
                 # identify direct parent of node
