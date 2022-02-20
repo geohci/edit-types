@@ -140,7 +140,7 @@ def test_change_text_count_english_punctuations():
     curr_text = "Wait for it... awesome! More things to come. Why me?"
     prev_text = "Waits for it... awesome!! More things to come. Why me?"
     expected_changes = {'Sentence':{'change':1},'Word':{'change':1},
-                        "Whitespace":{},"Punctuation":{'change':1},
+                        "Punctuation":{'change':1},
                         'Paragraph':{'change':1}
                         }
     get_text_structure = nd.parse_change_text('Text', prev_text,curr_text)
@@ -152,7 +152,7 @@ def test_text_change():
     curr_wikitext = prev_wikitext.replace('Aigen was born in Olomouc on 8 October 1685, the son of a goldsmith.',
                                           'Aigen-Abe was born in Olomouc on 9 October 1685, the daughter of a goldsmith.',
                                           1)
-    expected_changes = {'Paragraph':{'change':1}, 'Sentence':{'change':1}, 'Word':{'change':3},'Punctuation':{'change':1},'Whitespace':{}}
+    expected_changes = {'Paragraph':{'change':1}, 'Sentence':{'change':1}, 'Word':{'change':2,'insert':1},'Punctuation':{'change':1}}
     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
     assert expected_changes == nd.get_diff_count(diff)
     

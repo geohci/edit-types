@@ -34,7 +34,8 @@ class Tokenizer:
     
 
     def get_words(self, text):
-        word_list = re.findall(r'\w+',text)
+        #This extracts words inclusive of those with hyphens and apostrophes
+        word_list = re.findall(r"[\w'-]+",text)
         return word_list
 
     def get_sentences(self, text):
@@ -42,13 +43,17 @@ class Tokenizer:
         #[!?] - 1 or more ! or ?
         #| - or 
         # (?<!\.)\.(?!(?<=\d.)\d)(?!\.) - avoids matching dots between two digits but takes into account ellipsis and fullstops 
+        #Minimum sentence size is three words. So a sentence needs to have atleast 3 words in it
+        min_sentence_size = 3
         sentences = re.split(r'[!?]+|(?<!\.)\.(?!(?<=\d.)\d)(?!\.)', text)
-        sentences = sentences[:-1]
+        sentences = [ sentence for sentence in sentences if len(re.findall(r'\w+',sentence)) >= min_sentence_size]
         return sentences
 
     def get_paragraphs(self, text):
-        paragraphs = re.split(r'\n{2}', text)
-        return paragraphs
+        if text != '':
+            paragraphs = re.split(r'\n{2}', text)
+            return paragraphs
+        return []
 
     def tokenize_and_count(self, text):
         return {'whitespace_count':len(self.get_whitespace(text)),
