@@ -117,7 +117,7 @@ def test_swap_templates():
 
 def test_remove_text_count_english_punctuations():
     text = "Wait for it... awesome! More things to come. Why me?"
-    expected_changes = {'Sentence':{'remove':3},'Word':{'remove':10},"Whitespace":{'remove':9},"Punctuation":{'remove':4},
+    expected_changes = {'Sentence':{'remove':2},'Word':{'remove':10},"Whitespace":{'remove':9},"Punctuation":{'remove':4},
                         'Paragraph':{'remove':1}
                        }
     
@@ -127,7 +127,7 @@ def test_remove_text_count_english_punctuations():
 
 def test_insert_text_count_english_punctuations():
     text = "Wait for it... awesome! More things to come. Why me?"
-    expected_changes = {'Sentence':{'insert':3},'Word':{'insert':10},"Whitespace":{'insert':9},"Punctuation":{'insert':4},
+    expected_changes = {'Sentence':{'insert':2},'Word':{'insert':10},"Whitespace":{'insert':9},"Punctuation":{'insert':4},
                         'Paragraph':{'insert':1}
                        }
     
@@ -152,7 +152,7 @@ def test_text_change():
     curr_wikitext = prev_wikitext.replace('Aigen was born in Olomouc on 8 October 1685, the son of a goldsmith.',
                                           'Aigen-Abe was born in Olomouc on 9 October 1685, the daughter of a goldsmith.',
                                           1)
-    expected_changes = {'Paragraph':{'change':1}, 'Sentence':{'change':1}, 'Word':{'change':2,'insert':1},'Punctuation':{'change':1}}
+    expected_changes = {'Paragraph':{'change':1}, 'Sentence':{'change':1}, 'Word':{'change':3},'Punctuation':{'change':1}}
     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
     assert expected_changes == nd.get_diff_count(diff)
     
