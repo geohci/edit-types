@@ -47,12 +47,11 @@ The [[Österreichische Galerie Belvedere|Gallery of the Belvedere]] in Vienna ha
 """
 
 def get_diff(prev_wt, curr_wt, lang):
-    prev_wt = "==Lede==" + prev_wt
-    curr_wt = "==Lede==" + curr_wt
     return td.get_diff(prev_wt, curr_wt, lang)
 
 def check_change_counts(diff, expected_changes):
     diff = copy.deepcopy(diff)
+    errors = []
     for (action, section, etype) in expected_changes:
         found = False
         for idx in range(len(diff[action])-1, -1, -1):
@@ -65,9 +64,12 @@ def check_change_counts(diff, expected_changes):
                 diff[action].pop(idx)
                 found = True
                 break
-        assert found, f'Missing {action}: {etype} in {section}'
+        if not found:
+            errors.append(f'Missing {action}: {etype} in {section}')
     for action in ['remove', 'insert', 'change', 'move']:
-        assert not diff[action], f'Additional {action}: {json.dumps(diff[action], indent=2)}'
+        if diff[action]:
+            errors.append(f'Additional {action}: {json.dumps(diff[action], indent=2)}')
+    assert not errors
 
 
 def test_insert_category():
@@ -107,6 +109,62 @@ def test_remove_formatting():
     curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen'''",
                                           "Karl Josef Aigen",
                                           1)
-    expected_changes = [('remove', 'S#1: Lede (L2)', 'Tag')]
+    expected_changes = [('remove', 'S#1: Lede (L2)', 'Text Formatting')]
     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+    check_change_counts(diff, expected_changes)
+
+table = """{| border="1" cellspacing="0" cellpadding="5"
+|- bgcolor="#cccccc"
+! '''Year'''
+! '''[[House of Representatives of the Netherlands|HoR]]'''
+|-
+|[[1897 Dutch general election|1897]]
+|5
+|-
+|1898
+|5
+|-
+|1899
+|5
+|-
+|1900
+|5
+|-
+|1901
+|9
+|-
+|1902
+|9
+|}"""
+
+def test_insert_table():
+    curr_wikitext = prev_wikitext + '\n' + table
+    expected_changes = [('insert', 'S#5: External links (L2)', 'Table'),
+                        ('change', 'S#5: External links (L2)', 'Text'),
+                        ('insert', 'S#5: External links (L2)', 'Wikilink'),
+                        ('insert', 'S#5: External links (L2)', 'Wikilink'),
+                        ('insert', 'S#5: External links (L2)', 'Text Formatting'),
+                        ('insert', 'S#5: External links (L2)', 'Text Formatting')]
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+    check_change_counts(diff, expected_changes)
+
+gallery = """<gallery widths="190px" heights="190px" perrow="4">
+File:Lucas Cranach d.Ä. - Bildnis des Moritz Büchner.jpg|[[Lucas Cranach the Elder]], ''Portrait of Moritz Buchner'', 1518
+</gallery>"""
+
+def test_insert_gallery():
+    curr_wikitext = prev_wikitext + '\n' + gallery
+    expected_changes = [('insert', 'S#5: External links (L2)', 'Gallery'),
+                        ('change', 'S#5: External links (L2)', 'Text'),
+                        ('insert', 'S#5: External links (L2)', 'Media'),
+                        ('insert', 'S#5: External links (L2)', 'Wikilink'),
+                        ('insert', 'S#5: External links (L2)', 'Text Formatting')]
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+    check_change_counts(diff, expected_changes)
+
+def test_table_change():
+    curr_wikitext = table.replace('general election', 'gen elec', 1)
+    expected_changes = [('change', 'S#1: Lede (L2)', 'Wikilink'),
+                        ('change', 'S#1: Lede (L2)', 'Table')]
+    diff = get_diff(table, curr_wikitext, lang='en')
     check_change_counts(diff, expected_changes)

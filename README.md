@@ -28,6 +28,17 @@ The code for computing diffs and running edit-type detection can be found in two
 * `edit-types/tree_differ.py`: this is the first stage of the diffing pipeline that detects high-level changes.
 * `edit-types/node_differ.py`: this is the second stage of the diffing pipeline that takes the tree_differ output, further processes it, and counts up the edit types.
 
+While the diffing/counting is not trivial, the trickiest part of the process is correctly parsing the wikitext into nodes (Templates, Wikilinks, etc.).
+This is almost all done via the amazing [mwparserfromhell](https://github.com/earwig/mwparserfromhell) library with a few tweaks in the tree differ:
+* We use link namespace prefixes -- e.g., Category:, Image: -- to separate out categories and media from other wikilinks.
+* We identify some additional media files that are transcluded via templates -- e.g., infoboxes -- or gallery tags.
+* We also add some custom logic for parsing `<gallery>` tags to identify nested links, etc., which otherwise are treated as text by `mwparserfromhell`.
+* We use custom logic for converting wikitext into text to best match what words show up in the text of the article.
+
+To accurately, but efficiently, describe the scale of textual changes in edits, we also use some regexes and heuristics to describe how much text was changed in an edit in the node differ.
+This is generally the toughest part of diffing text but because we do not need to visually describe the diff, just estimate the scale of how much changed, we can use relatively simple methods.
+To do this, we break down text changes into five categories and identify how much of each changed: paragraphs, sentences, words, punctuation, and whitespace.
+
 ## Tests
 The tests for node/tree differs are contained within the `tests` directory.
 They can be run via [pytest](https://docs.pytest.org/en/6.2.x/#).
