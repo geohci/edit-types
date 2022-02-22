@@ -118,7 +118,7 @@ def test_swap_templates():
 
 def test_remove_text_count_english_punctuations():
     text = "Wait for it... awesome! More things to come. Why me?"
-    expected_changes = {'Sentence':{'remove':3},'Word':{'remove':10},"Whitespace":{'remove':9},"Punctuation":{'remove':4},
+    expected_changes = {'Sentence':{'remove':2},'Word':{'remove':10},"Whitespace":{'remove':9},"Punctuation":{'remove':4},
                         'Paragraph':{'remove':1}
                        }
     
@@ -128,7 +128,7 @@ def test_remove_text_count_english_punctuations():
 
 def test_insert_text_count_english_punctuations():
     text = "Wait for it... awesome! More things to come. Why me?"
-    expected_changes = {'Sentence':{'insert':3},'Word':{'insert':10},"Whitespace":{'insert':9},"Punctuation":{'insert':4},
+    expected_changes = {'Sentence':{'insert':2},'Word':{'insert':10},"Whitespace":{'insert':9},"Punctuation":{'insert':4},
                         'Paragraph':{'insert':1}
                        }
     
@@ -141,7 +141,7 @@ def test_change_text_count_english_punctuations():
     curr_text = "Wait for it... awesome! More things to come. Why me?"
     prev_text = "Waits for it... awesome!! More things to come. Why me?"
     expected_changes = {'Sentence':{'change':1},'Word':{'change':1},
-                        "Whitespace":{},"Punctuation":{'change':1},
+                        "Punctuation":{'change':1},
                         'Paragraph':{'change':1}
                         }
     get_text_structure = nd.parse_change_text('Text', prev_text,curr_text)
@@ -153,7 +153,7 @@ def test_text_change():
     curr_wikitext = prev_wikitext.replace('Aigen was born in Olomouc on 8 October 1685, the son of a goldsmith.',
                                           'Aigen-Abe was born in Olomouc on 9 October 1685, the daughter of a goldsmith.',
                                           1)
-    expected_changes = {'Paragraph':{'change':1}, 'Sentence':{'change':1}, 'Word':{'change':3},'Punctuation':{'change':1},'Whitespace':{}}
+    expected_changes = {'Paragraph':{'change':1}, 'Sentence':{'change':1}, 'Word':{'change':3},'Punctuation':{'change':1}}
     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
     assert expected_changes == nd.get_diff_count(diff)
     
@@ -173,11 +173,11 @@ def test_text_change():
 #     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
 #     assert expected_changes == nd.get_diff_count(diff)
 
-# def test_nested_nodes_media_format():
-#     # Known that this test fails right now -- see https://github.com/geohci/edit-types/issues/13
-#     curr_wikitext = prev_wikitext.replace("[[File:Carl Aigen Fischmarkt.jpg|thumb|''Fischmarkt'' by Karl Aigen]]",
-#                                           "[[File:Carl Aigen Fischmarkt.jpg|thumb|Fischmarkt by Karl Aigen<ref>A reference</ref>]]",
-#                                           1)
-#     expected_changes = {'Text Formatting':{'remove':1},'Media':{'change':1}, 'Reference':{'insert':1}}
-#     diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
-#     assert expected_changes == nd.get_diff_count(diff)
+def test_nested_nodes_media_format():
+    # Known that this test fails right now -- see https://github.com/geohci/edit-types/issues/13
+    curr_wikitext = prev_wikitext.replace("[[File:Carl Aigen Fischmarkt.jpg|thumb|''Fischmarkt'' by Karl Aigen]]",
+                                          "[[File:Carl Aigen Fischmarkt.jpg|thumb|Fischmarkt by Karl Aigen<ref>A reference</ref>]]",
+                                          1)
+    expected_changes = {'Text Formatting':{'remove':1},'Media':{'change':1}, 'Reference':{'insert':1}}
+    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
+    assert expected_changes == nd.get_diff_count(diff)
