@@ -93,7 +93,7 @@ def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
             if prev_filtered_text.value != curr_filtered_text.value:
                 return True, 'Text'
 
-        if node_type == 'Tag':
+        if node_type == 'Reference':
             #Check if a reference changes
             prev_filtered_ref = prev_parsed_text.filter_tags(matches=lambda node: node.tag == "ref",recursive=False)
             curr_filtered_ref = curr_parsed_text.filter_tags(matches=lambda node: node.tag == "ref",recursive=False)
@@ -101,6 +101,7 @@ def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
                 if prev_filtered_ref[0].contents != curr_filtered_ref[0].contents:
                     return True, 'Reference'
 
+        if node_type == 'Table':
             #Check if a table changes
 
             prev_filtered_table = prev_parsed_text.filter_tags(matches=lambda node: node.tag == "table",recursive=False)
@@ -110,21 +111,17 @@ def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
                 if prev_filtered_table[0].contents != curr_filtered_table[0].contents:
                     return True, 'Table'
 
+        if node_type == 'Text Formatting':
             #Check if a text format changes
-            prev_filtered_text_formatting = prev_parsed_text.filter_tags(recursive=False)
+            prev_filtered_text_formatting = prev_parsed_text.filter_tags(matches=lambda node: node.tag in ('b', 'i', 's', 'u', 'del', 'ins','hr','pre', 'nowiki','small', 'big', 'sub', 'sup'),recursive=False)
 
-            curr_filtered_text_formatting = curr_parsed_text.filter_tags(recursive=False)
+            curr_filtered_text_formatting = curr_parsed_text.filter_tags(matches=lambda node: node.tag in ('b', 'i', 's', 'u', 'del', 'ins','hr','pre', 'nowiki','small', 'big', 'sub', 'sup'),recursive=False)
 
             if len(prev_filtered_text_formatting) > 0 and len(curr_filtered_text_formatting) > 0:
-                prev_filtered_text_formatting = re.findall("'{2}.*''", str(prev_filtered_text_formatting[0]))
-                curr_filtered_text_formatting = re.findall("'{2}.*''", str(curr_filtered_text_formatting[0]))
+                if prev_filtered_text_formatting[0] != curr_filtered_text_formatting[0]:
+                    return True, 'Text Formatting'
 
-                if len(prev_filtered_text_formatting) > 0 and len(curr_filtered_text_formatting) > 0:
-
-                    if prev_filtered_text_formatting[0] != curr_filtered_text_formatting[0]:
-                        return True, 'Text Formatting'
-
-
+        if node_type == 'List':
             #Check if a list changes
             prev_filtered_list = prev_parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)
             curr_filtered_list = curr_parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)
@@ -132,6 +129,34 @@ def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
             if len(prev_filtered_list) > 0  and len(curr_filtered_list) > 0:
                 if prev_filtered_list[0].contents != curr_filtered_list[0].contents:
                     return True, 'List'
+
+        if node_type == 'Table Element':
+            #Check if a table element changes
+
+            prev_filtered_table = prev_parsed_text.filter_tags(matches=lambda node: node.tag in ('th', 'tr', 'td'),recursive=False)
+            curr_filtered_table = curr_parsed_text.filter_tags(matches=lambda node: node.tag in ('th', 'tr', 'td'),recursive=False)
+
+            if len(prev_filtered_table) > 0 and len(curr_filtered_table) > 0:
+                if prev_filtered_table[0].contents != curr_filtered_table[0].contents:
+                    return True, 'Table'
+
+        if node_type == 'Gallery':
+            #Check if a list changes
+            prev_filtered_gallery = prev_parsed_text.filter_tags(matches=lambda node: node.tag == 'Gallery',recursive=False)
+            curr_filtered_gallery = curr_parsed_text.filter_tags(matches=lambda node: node.tag == 'Gallery',recursive=False)
+
+            if len(prev_filtered_gallery) > 0  and len(curr_filtered_gallery) > 0:
+                if prev_filtered_gallery[0].contents != curr_filtered_gallery[0].contents:
+                    return True, 'Gallery'
+
+        if 'Tag' in node_type:
+            #Check if a tag changes
+            prev_filtered_tag = prev_parsed_text.filter_tags(recursive=False)
+            curr_filtered_tag = curr_parsed_text.filter_tags(recursive=False)
+
+            if len(prev_filtered_tag) > 0  and len(curr_filtered_tag) > 0:
+                if prev_filtered_tag[0].contents != curr_filtered_tag[0].contents:
+                    return True, node_type
 
         if node_type == 'Heading':
             prev_filtered_section = prev_parsed_text.filter_headings(recursive=False)[0]
@@ -181,28 +206,42 @@ def is_edit_type(wikitext, node_type):
         if len(text) > 0:
             return True, 'Text'
 
-
-    elif node_type == 'Tag':
+    elif node_type == 'Reference':
         # Check if edit type is a reference
         ref = parsed_text.filter_tags(matches=lambda node: node.tag == "ref",recursive=False)
         if len(ref) > 0:
             return True, 'Reference'
+
+    elif node_type == 'List':
+        list_type = parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)
+        if len(list_type) > 0:
+            return True, 'List'
+
+    elif node_type == 'Table':
         # Check if edit type is a table
         table = parsed_text.filter_tags(matches=lambda node: node.tag == "table",recursive=False)
         if len(table) > 0:
             return True, 'Table'
 
-        # Check if edit type is a text formatting
-        text_format = parsed_text.filter_tags(recursive=False)
-        text_format = re.findall("'{2}.*''", str(text_format[0]))
+    elif 'Tag' in node_type:
+        tag = parsed_text.filter_tags(recursive=False)
+        if len(tag) > 0:
+            return True, node_type
+
+    elif node_type == 'Text Formatting':
+        text_format = parsed_text.filter_tags(matches=lambda node: node.tag in ('b', 'i', 's', 'u', 'del', 'ins','hr','pre', 'nowiki','small', 'big', 'sub', 'sup'),recursive=False)
         if len(text_format) > 0:
             return True, 'Text Formatting'
 
-        list_type = parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)
-        if len(list_type) > 0:
-            return True, 'List'
+    elif node_type == 'Table Element':
+        table_element = parsed_text.filter_tags(matches=lambda node: node.tag in ('th', 'tr', 'td'),recursive=False)
+        if len(table_element) > 0:
+            return True, 'Table Element'
 
-
+    elif node_type == 'Gallery':
+        gallery = parsed_text.filter_tags(matches=lambda node: node.tag == 'gallery',recursive=False)
+        if len(gallery) > 0:
+            return True, 'Gallery'
     elif node_type == 'Comment':
         comments = parsed_text.filter_comments(recursive=False)
         if len(comments) > 0:
