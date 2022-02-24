@@ -118,7 +118,7 @@ def test_swap_templates():
 
 def test_remove_text_count_english_punctuations():
     text = "Wait for it... awesome! More things to come. Why me?"
-    expected_changes = {'Sentence':{'remove':2},'Word':{'remove':10},"Whitespace":{'remove':9},"Punctuation":{'remove':4},
+    expected_changes = {'Sentence':{'remove':3},'Word':{'remove':10},"Whitespace":{'remove':9},"Punctuation":{'remove':4},
                         'Paragraph':{'remove':1}
                        }
     
@@ -128,7 +128,7 @@ def test_remove_text_count_english_punctuations():
 
 def test_insert_text_count_english_punctuations():
     text = "Wait for it... awesome! More things to come. Why me?"
-    expected_changes = {'Sentence':{'insert':2},'Word':{'insert':10},"Whitespace":{'insert':9},"Punctuation":{'insert':4},
+    expected_changes = {'Sentence':{'insert':3},'Word':{'insert':10},"Whitespace":{'insert':9},"Punctuation":{'insert':4},
                         'Paragraph':{'insert':1}
                        }
     

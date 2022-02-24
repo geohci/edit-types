@@ -44,23 +44,24 @@ class Tokenizer:
         #| - or 
         # (?<!\.)\.(?!(?<=\d.)\d)(?!\.) - avoids matching dots between two digits but takes into account ellipsis and fullstops 
         #Minimum sentence size is three words. So a sentence needs to have atleast 3 words in it
-        min_sentence_size = 3
+        min_sentence_size = 2
         sentences = re.split(r'[!?]+|(?<!\.)\.(?!(?<=\d.)\d)(?!\.)', text)
         sentences = [ sentence for sentence in sentences if len(re.findall(r'\w+',sentence)) >= min_sentence_size]
         return sentences
 
     def get_paragraphs(self, text):
         if text != '':
-            paragraphs = re.split(r'\n{2}', text)
+            paragraphs = [paragraph for paragraph in re.split(r'\n{2}', text) if len(self.get_words(paragraph)) > 0]
+
             return paragraphs
         return []
 
     def tokenize_and_count(self, text):
-        return {'whitespace_count':len(self.get_whitespace(text)),
-                'punctuation_count':len(self.get_punctuations(text)),
-                'word_count': len(self.get_words(text)),
-                'sentence_count':len(self.get_sentences(text)),
-                'paragraph_count': len(self.get_paragraphs(text))
+        return {'Whitespace':len(self.get_whitespace(text)),
+                'Punctuation':len(self.get_punctuations(text)),
+                'Word': len(self.get_words(text)),
+                'Sentence':len(self.get_sentences(text)),
+                'Paragraph': len(self.get_paragraphs(text))
                 }
 
     def tokenize_and_get_occurence(self, text):
@@ -77,9 +78,9 @@ class Tokenizer:
         paragraphs_occurence = Counter(paragraphs)
 
         return {
-            'whitespace_count':dict(whitespace_occurence),
-            'punctuation_count':dict(punctuation_occurence),
-            'word_count':dict(words_occurence),
-            'sentence_count':dict(sentences_occurence),
-            'paragraph_count':dict(paragraphs_occurence)
+            'Whitespace':dict(whitespace_occurence),
+            'Punctuation':dict(punctuation_occurence),
+            'Word':dict(words_occurence),
+            'Sentence':dict(sentences_occurence),
+            'Paragraph':dict(paragraphs_occurence)
         }
