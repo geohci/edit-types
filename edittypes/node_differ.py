@@ -27,7 +27,7 @@ ENGLISH_UNICODE = '[\u00b7\u00bf]'
 # Initialize tokenizer class
 TOKENIZER = Tokenizer(ENGLISH_UNICODE, NON_ENGLISH_UNICODE)
     
-def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
+def is_change_in_edit_type(node_type,prev_wikitext='',curr_wikitext=''):
     """ Checks if a change occurs in wikitexts
 
     Parameters
@@ -48,231 +48,265 @@ def is_change_in_edit_type(prev_wikitext,curr_wikitext,node_type):
         curr_parsed_text = mw.parse(curr_wikitext)
 
         if node_type == 'Template':
-            prev_temp_dict = { str(temp.name):str(temp.value) for temp in prev_parsed_text.filter_templates(recursive=False)[0].params}
-            prev_temp_dict = dict(prev_temp_dict, **{'template_name':str(prev_parsed_text.filter_templates(recursive=False)[0].name)})
+            if prev_wikitext != '' and curr_wikitext != '':
+                prev_temp_dict = { str(temp.name):str(temp.value) for temp in prev_parsed_text.filter_templates(recursive=False)[0].params}
+                prev_temp_dict = dict(prev_temp_dict, **{'template_name':str(prev_parsed_text.filter_templates(recursive=False)[0].name)})
+                
+                curr_temp_dict = { str(temp.name):str(temp.value) for temp in curr_parsed_text.filter_templates(recursive=False)[0].params}
+                curr_temp_dict = dict(curr_temp_dict, **{'template_name':str(curr_parsed_text.filter_templates(recursive=False)[0].name)})
+                
+                #Get the difference between template parameters. If it is more than 0, then a change occured
+                if len(set(curr_temp_dict.items()) ^ set(prev_temp_dict.items())) > 0:
+                    return True, 'Template'
+            elif prev_wikitext != '' and curr_wikitext=='':
+                templates = prev_parsed_text.filter_templates(recursive=False)
+                if len(templates) > 0:
+                    return True, 'Template'
+
+            elif prev_wikitext == '' and curr_wikitext != '':
+                templates = curr_parsed_text.filter_templates(recursive=False)
+                if len(templates) > 0:
+                    return True, 'Template'
             
-            curr_temp_dict = { str(temp.name):str(temp.value) for temp in curr_parsed_text.filter_templates(recursive=False)[0].params}
-            curr_temp_dict = dict(curr_temp_dict, **{'template_name':str(curr_parsed_text.filter_templates(recursive=False)[0].name)})
-            
-            #Get the difference between template parameters. If it is more than 0, then a change occured
-            if len(set(curr_temp_dict.items()) ^ set(prev_temp_dict.items())) > 0:
-                return True, 'Template'
-        
         elif node_type == 'Media':
-            if len(prev_parsed_text) > 0 and len(curr_parsed_text) > 0:
-                return True, 'Media'
-
+            if prev_wikitext != '' and curr_wikitext != '':
+                if len(prev_parsed_text) > 0 and len(curr_parsed_text) > 0:
+                    return True, 'Media'
+            elif prev_wikitext != '' and curr_wikitext=='':
+                if len(prev_parsed_text) > 0:
+                    return True, 'Media'
+            elif prev_wikitext == '' and curr_wikitext != '':
+                if len(curr_parsed_text) > 0:
+                    return True, 'Media'
+        
         elif node_type == 'Category':
-            prev_cat = prev_parsed_text.filter_wikilinks(recursive=False)
-            curr_cat = curr_parsed_text.filter_wikilinks(recursive=False)
-
-            if len(prev_cat) > 0 and len(curr_cat) > 0:
-                if prev_cat[0].text != curr_cat[0].text or \
-                    prev_cat[0].title != curr_cat[0].title:
+            if prev_wikitext != '' and curr_wikitext != '':
+                prev_cat = prev_parsed_text.filter_wikilinks(recursive=False)
+                curr_cat = curr_parsed_text.filter_wikilinks(recursive=False)
+                if len(prev_cat) > 0 and len(curr_cat) > 0:
+                    if prev_cat[0].text != curr_cat[0].text or \
+                        prev_cat[0].title != curr_cat[0].title:
+                        return True, 'Category'
+                        
+            elif prev_wikitext != '' and curr_wikitext=='':
+                category = prev_parsed_text.filter_wikilinks(recursive=False)
+                if len(category) > 0:
+                    return True, 'Category'
+            elif prev_wikitext == '' and curr_wikitext != '':
+                category = curr_parsed_text.filter_wikilinks(recursive=False)
+                if len(category) > 0:
                     return True, 'Category'
 
         elif node_type == 'Wikilink':
-            prev_wikilink = prev_parsed_text.filter_wikilinks(recursive=False)
-            curr_wikilink = curr_parsed_text.filter_wikilinks(recursive=False)
+            if prev_wikitext != '' and curr_wikitext != '':
+                prev_wikilink = prev_parsed_text.filter_wikilinks(recursive=False)
+                curr_wikilink = curr_parsed_text.filter_wikilinks(recursive=False)
 
-            if len(prev_wikilink) > 0 and len(curr_wikilink) > 0:
-                if prev_wikilink[0].text != curr_wikilink[0].text or \
-                    prev_wikilink[0].title != curr_wikilink[0].title:
+                if len(prev_wikilink) > 0 and len(curr_wikilink) > 0:
+                    if prev_wikilink[0].text != curr_wikilink[0].text or \
+                        prev_wikilink[0].title != curr_wikilink[0].title:
+                        return True, 'Wikilink'
+            elif prev_wikitext != '' and curr_wikitext=='':
+                wikilinks = prev_parsed_text.filter_wikilinks(recursive=False)
+                if len(wikilinks) > 0:
+                    return True, 'Wikilink' 
+            elif prev_wikitext == '' and curr_wikitext != '':
+                wikilinks = curr_parsed_text.filter_wikilinks(recursive=False)
+                if len(wikilinks) > 0:
                     return True, 'Wikilink'
-
-        elif node_type == 'Text':
-            prev_filtered_text = prev_parsed_text.filter_text(recursive=False)[0]
-            curr_filtered_text = curr_parsed_text.filter_text(recursive=False)[0]
-
-            if prev_filtered_text.value != curr_filtered_text.value:
-                return True, 'Text'
-
+        
         elif node_type == 'Reference':
             #Check if a reference changes
-            prev_filtered_ref = prev_parsed_text.filter_tags(matches=lambda node: node.tag == "ref",recursive=False)
-            curr_filtered_ref = curr_parsed_text.filter_tags(matches=lambda node: node.tag == "ref",recursive=False)
-            if len(prev_filtered_ref) > 0 and len(curr_filtered_ref) > 0:
-                if prev_filtered_ref[0].contents != curr_filtered_ref[0].contents:
+            if prev_wikitext != '' and curr_wikitext != '':
+                prev_filtered_ref = prev_parsed_text.filter_tags(matches=lambda node: node.tag == "ref",recursive=False)
+                curr_filtered_ref = curr_parsed_text.filter_tags(matches=lambda node: node.tag == "ref",recursive=False)
+                if len(prev_filtered_ref) > 0 and len(curr_filtered_ref) > 0:
+                    if prev_filtered_ref[0].contents != curr_filtered_ref[0].contents:
+                        return True, 'Reference'
+            elif prev_wikitext != '' and curr_wikitext=='':
+                ref = prev_parsed_text.filter_tags(matches=lambda node: node.tag == "ref",recursive=False)
+                if len(ref) > 0:
+                    return True, 'Reference'
+
+            elif prev_wikitext == '' and curr_wikitext != '':
+                ref = curr_parsed_text.filter_tags(matches=lambda node: node.tag == "ref",recursive=False)
+                if len(ref) > 0:
                     return True, 'Reference'
 
         elif node_type == 'Table':
-            #Check if a table changes
+            if prev_wikitext != '' and curr_wikitext != '':
+                #Check if a table changes
+                prev_filtered_table = prev_parsed_text.filter_tags(matches=lambda node: node.tag == "table",recursive=False)
+                curr_filtered_table = curr_parsed_text.filter_tags(matches=lambda node: node.tag == "table",recursive=False)
 
-            prev_filtered_table = prev_parsed_text.filter_tags(matches=lambda node: node.tag == "table",recursive=False)
-            curr_filtered_table = curr_parsed_text.filter_tags(matches=lambda node: node.tag == "table",recursive=False)
+                if len(prev_filtered_table) > 0 and len(curr_filtered_table) > 0:
+                    if prev_filtered_table[0].contents != curr_filtered_table[0].contents:
+                        return True, 'Table'
 
-            if len(prev_filtered_table) > 0 and len(curr_filtered_table) > 0:
-                if prev_filtered_table[0].contents != curr_filtered_table[0].contents:
+            elif prev_wikitext != '' and curr_wikitext=='':
+                tables = prev_parsed_text.filter_tags(matches=lambda node: node.tag == "table",recursive=False)
+                if len(tables) > 0:
+                    return True, 'Table'
+
+            elif prev_wikitext == '' and curr_wikitext != '':
+                tables = curr_parsed_text.filter_tags(matches=lambda node: node.tag == "table",recursive=False)
+                if len(tables) > 0:
                     return True, 'Table'
 
         elif node_type == 'Text Formatting':
             #Check if a text format changes
-            prev_filtered_text_formatting = prev_parsed_text.filter_tags(matches=lambda node: node.tag in ('b', 'i', 's', 'u', 'del', 'ins','hr','pre', 'nowiki','small', 'big', 'sub', 'sup'),recursive=False)
+            if prev_wikitext != '' and curr_wikitext != '':
+                prev_filtered_text_formatting = prev_parsed_text.filter_tags(matches=lambda node: node.tag in ('b', 'i', 's', 'u', 'del', 'ins','hr','pre', 'nowiki','small', 'big', 'sub', 'sup'),recursive=False)
+                curr_filtered_text_formatting = curr_parsed_text.filter_tags(matches=lambda node: node.tag in ('b', 'i', 's', 'u', 'del', 'ins','hr','pre', 'nowiki','small', 'big', 'sub', 'sup'),recursive=False)
 
-            curr_filtered_text_formatting = curr_parsed_text.filter_tags(matches=lambda node: node.tag in ('b', 'i', 's', 'u', 'del', 'ins','hr','pre', 'nowiki','small', 'big', 'sub', 'sup'),recursive=False)
-
-            if len(prev_filtered_text_formatting) > 0 and len(curr_filtered_text_formatting) > 0:
-                if prev_filtered_text_formatting[0].tag != curr_filtered_text_formatting[0].tag:
+                if len(prev_filtered_text_formatting) > 0 and len(curr_filtered_text_formatting) > 0:
+                    if prev_filtered_text_formatting[0].tag != curr_filtered_text_formatting[0].tag:
+                        return True, 'Text Formatting'
+            elif prev_wikitext != '' and curr_wikitext=='':
+                text_format = prev_parsed_text.filter_tags(matches=lambda node: node.tag in ('b', 'i', 's', 'u', 'del', 'ins','hr','pre', 'nowiki','small', 'big', 'sub', 'sup'),recursive=False)
+                if len(text_format) > 0:
+                    return True, 'Text Formatting'
+            elif prev_wikitext == '' and curr_wikitext != '':
+                text_format = curr_parsed_text.filter_tags(matches=lambda node: node.tag in ('b', 'i', 's', 'u', 'del', 'ins','hr','pre', 'nowiki','small', 'big', 'sub', 'sup'),recursive=False)
+                if len(text_format) > 0:
                     return True, 'Text Formatting'
 
         elif node_type == 'List':
-            #Check if a list changes
-            prev_filtered_list = prev_parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)
-            curr_filtered_list = curr_parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)
+            if prev_wikitext != '' and curr_wikitext != '':
+                #Check if a list changes
+                prev_filtered_list = prev_parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)
+                curr_filtered_list = curr_parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)
 
-            if len(prev_filtered_list) > 0  and len(curr_filtered_list) > 0:
-                if prev_filtered_list[0].contents != curr_filtered_list[0].contents:
+                if len(prev_filtered_list) > 0  and len(curr_filtered_list) > 0:
+                    if prev_filtered_list[0].contents != curr_filtered_list[0].contents:
+                        return True, 'List'
+
+            elif prev_wikitext != '' and curr_wikitext=='':
+                lists = prev_parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)
+                if len(lists) > 0:
                     return True, 'List'
 
+            elif prev_wikitext == '' and curr_wikitext != '':
+                lists = curr_parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)
+                if len(lists) > 0:
+                    return True, 'List'
+
+
         elif node_type == 'Table Element':
-            #Check if a table element changes
+            if prev_wikitext != '' and curr_wikitext != '':
+                #Check if a table element changes
+                prev_filtered_table = prev_parsed_text.filter_tags(matches=lambda node: node.tag in ('th', 'tr', 'td'),recursive=False)
+                curr_filtered_table = curr_parsed_text.filter_tags(matches=lambda node: node.tag in ('th', 'tr', 'td'),recursive=False)
 
-            prev_filtered_table = prev_parsed_text.filter_tags(matches=lambda node: node.tag in ('th', 'tr', 'td'),recursive=False)
-            curr_filtered_table = curr_parsed_text.filter_tags(matches=lambda node: node.tag in ('th', 'tr', 'td'),recursive=False)
+                if len(prev_filtered_table) > 0 and len(curr_filtered_table) > 0:
+                    if prev_filtered_table[0].contents != curr_filtered_table[0].contents:
+                        return True, 'Table Element'
 
-            if len(prev_filtered_table) > 0 and len(curr_filtered_table) > 0:
-                if prev_filtered_table[0].contents != curr_filtered_table[0].contents:
-                    return True, 'Table'
+            elif prev_wikitext != '' and curr_wikitext=='':
+                table_elems = prev_parsed_text.filter_tags(matches=lambda node: node.tag in ('th', 'tr', 'td'),recursive=False)
+                if len(table_elems) > 0:
+                    return True, 'Table Element'
+
+            elif prev_wikitext == '' and curr_wikitext != '':
+                table_elems = curr_parsed_text.filter_tags(matches=lambda node: node.tag in ('th', 'tr', 'td'),recursive=False)
+                if len(table_elems) > 0:
+                    return True, 'Table Element'
 
         elif node_type == 'Gallery':
-            #Check if a list changes
-            prev_filtered_gallery = prev_parsed_text.filter_tags(matches=lambda node: node.tag == 'Gallery',recursive=False)
-            curr_filtered_gallery = curr_parsed_text.filter_tags(matches=lambda node: node.tag == 'Gallery',recursive=False)
+            #Check if a gallery changes
+            if prev_wikitext != '' and curr_wikitext != '':
+                prev_filtered_gallery = prev_parsed_text.filter_tags(matches=lambda node: node.tag == 'Gallery',recursive=False)
+                curr_filtered_gallery = curr_parsed_text.filter_tags(matches=lambda node: node.tag == 'Gallery',recursive=False)
 
-            if len(prev_filtered_gallery) > 0  and len(curr_filtered_gallery) > 0:
-                if prev_filtered_gallery[0].contents != curr_filtered_gallery[0].contents:
+                if len(prev_filtered_gallery) > 0  and len(curr_filtered_gallery) > 0:
+                    if prev_filtered_gallery[0].contents != curr_filtered_gallery[0].contents:
+                        return True, 'Gallery'
+
+            elif prev_wikitext != '' and curr_wikitext=='':
+                gallery = prev_parsed_text.filter_tags(matches=lambda node: node.tag == 'Gallery',recursive=False)
+                if len(gallery) > 0:
                     return True, 'Gallery'
 
+            elif prev_wikitext == '' and curr_wikitext != '':
+                gallery = curr_parsed_text.filter_tags(matches=lambda node: node.tag == 'Gallery',recursive=False)
+                if len(gallery) > 0:
+                    return True, 'Gallery'
+            
         elif 'Tag' in node_type:
             #Check if a tag changes
-            prev_filtered_tag = prev_parsed_text.filter_tags(recursive=False)
-            curr_filtered_tag = curr_parsed_text.filter_tags(recursive=False)
+            if prev_wikitext != '' and curr_wikitext != '':
+                prev_filtered_tag = prev_parsed_text.filter_tags(recursive=False)
+                curr_filtered_tag = curr_parsed_text.filter_tags(recursive=False)
 
-            if len(prev_filtered_tag) > 0  and len(curr_filtered_tag) > 0:
-                if prev_filtered_tag[0].contents != curr_filtered_tag[0].contents:
+                if len(prev_filtered_tag) > 0  and len(curr_filtered_tag) > 0:
+                    if prev_filtered_tag[0].contents != curr_filtered_tag[0].contents:
+                        return True, node_type
+
+            elif prev_wikitext != '' and curr_wikitext=='':
+                tags = prev_parsed_text.filter_tags(recursive=False)
+                if len(tags) > 0:
+                    return True, node_type
+
+            elif prev_wikitext == '' and curr_wikitext != '':
+                tags = curr_parsed_text.filter_tags(recursive=False)
+                if len(tags) > 0:
                     return True, node_type
 
         elif node_type == 'Heading':
-            prev_filtered_section = prev_parsed_text.filter_headings(recursive=False)[0]
-            curr_filtered_section = curr_parsed_text.filter_headings(recursive=False)[0]
+            if prev_wikitext != '' and curr_wikitext != '':
+                prev_filtered_section = prev_parsed_text.filter_headings(recursive=False)[0]
+                curr_filtered_section = curr_parsed_text.filter_headings(recursive=False)[0]
 
-            if prev_filtered_section.title != curr_filtered_section.title:
-                return True, 'Heading'
+                if prev_filtered_section.title != curr_filtered_section.title:
+                    return True, 'Heading'
+            elif prev_wikitext != '' and curr_wikitext=='':
+                section = prev_parsed_text.filter_headings(recursive=False)
+                if len(section) > 0:
+                    return True, 'Heading'
+            elif prev_wikitext == '' and curr_wikitext != '':
+                section = curr_parsed_text.filter_headings(recursive=False)
+                if len(section) > 0:
+                    return True, 'Heading'
 
         elif node_type == 'Comment':
-            prev_filtered_comments = prev_parsed_text.filter_comments(recursive=False)[0]
-            curr_filtered_comments = curr_parsed_text.filter_comments(recursive=False)[0]
+            if prev_wikitext != '' and curr_wikitext != '':
+                prev_filtered_comments = prev_parsed_text.filter_comments(recursive=False)[0]
+                curr_filtered_comments = curr_parsed_text.filter_comments(recursive=False)[0]
 
-            if prev_filtered_comments.contents != curr_filtered_comments.contents:
-                return True, 'Comment'
+                if prev_filtered_comments.contents != curr_filtered_comments.contents:
+                    return True, 'Comment'
+
+            elif prev_wikitext != '' and curr_wikitext=='':
+                comments = prev_parsed_text.filter_comments(recursive=False)
+                if len(comments) > 0:
+                    return True, 'Comments'
+
+            elif prev_wikitext == '' and curr_wikitext != '':
+                comments = curr_parsed_text.filter_comments(recursive=False)
+                if len(comments) > 0:
+                    return True, 'Comments'
 
         elif node_type == 'ExternalLink':
-            prev_filtered_external_links = prev_parsed_text.filter_external_links(recursive=False)[0]
-            curr_filtered_external_links = curr_parsed_text.filter_external_links(recursive=False)[0]
+            if prev_wikitext != '' and curr_wikitext != '':
+                prev_filtered_external_links = prev_parsed_text.filter_external_links(recursive=False)[0]
+                curr_filtered_external_links = curr_parsed_text.filter_external_links(recursive=False)[0]
 
-            if prev_filtered_external_links.title != curr_filtered_external_links.title or \
-                prev_filtered_external_links.url != curr_filtered_external_links.url:
-                return True, 'ExternalLink'
+                if prev_filtered_external_links.title != curr_filtered_external_links.title or \
+                    prev_filtered_external_links.url != curr_filtered_external_links.url:
+                    return True, 'ExternalLink'
+            elif prev_wikitext != '' and curr_wikitext=='':
+                external_links = prev_parsed_text.filter_external_links(recursive=False)
+                if len(external_links) > 0:
+                    return True, 'ExternalLink'
 
+            elif prev_wikitext == '' and curr_wikitext != '':
+                external_links = curr_parsed_text.filter_external_links(recursive=False)
+                if len(external_links) > 0:
+                    return True, 'ExternalLink'
         else:
             return False, None 
     except Exception:
         pass
-
-    return False, None
-
-
-def is_edit_type(wikitext, node_type):
-    """ Checks if wikitext is an edit type
-
-    Parameters
-    ----------
-    wikitext : str
-        Wikitext
-    node_type: str
-        Node type
-    Returns
-    -------
-    tuple
-        Tuple containing the bool,wikitext and edit type
-    """
-    parsed_text = mw.parse(wikitext)
-    # If type field is Text
-    if node_type == 'Text':
-        text = parsed_text.filter_text(recursive=False)
-        if len(text) > 0:
-            return True, 'Text'
-
-    elif node_type == 'Reference':
-        # Check if edit type is a reference
-        ref = parsed_text.filter_tags(matches=lambda node: node.tag == "ref",recursive=False)
-        if len(ref) > 0:
-            return True, 'Reference'
-
-    elif node_type == 'List':
-        list_type = parsed_text.filter_tags(matches=lambda node: node.tag in ("li","dt","dd"),recursive=False)
-        if len(list_type) > 0:
-            return True, 'List'
-
-    elif node_type == 'Table':
-        # Check if edit type is a table
-        table = parsed_text.filter_tags(matches=lambda node: node.tag == "table",recursive=False)
-        if len(table) > 0:
-            return True, 'Table'
-
-    elif 'Tag' in node_type:
-        tag = parsed_text.filter_tags(recursive=False)
-        if len(tag) > 0:
-            return True, node_type
-
-    elif node_type == 'Text Formatting':
-        text_format = parsed_text.filter_tags(matches=lambda node: node.tag in ('b', 'i', 's', 'u', 'del', 'ins','hr','pre', 'nowiki','small', 'big', 'sub', 'sup'),recursive=False)
-        if len(text_format) > 0:
-            return True, 'Text Formatting'
-
-    elif node_type == 'Table Element':
-        table_element = parsed_text.filter_tags(matches=lambda node: node.tag in ('th', 'tr', 'td'),recursive=False)
-        if len(table_element) > 0:
-            return True, 'Table Element'
-
-    elif node_type == 'Gallery':
-        gallery = parsed_text.filter_tags(matches=lambda node: node.tag == 'gallery',recursive=False)
-        if len(gallery) > 0:
-            return True, 'Gallery'
-    elif node_type == 'Comment':
-        comments = parsed_text.filter_comments(recursive=False)
-        if len(comments) > 0:
-            return True, 'Comment'
-
-    elif node_type == 'Template':
-        templates = parsed_text.filter_templates(recursive=False)
-        if len(templates) > 0:
-            return True, 'Template'
-
-    elif node_type == 'Heading':
-        section = parsed_text.filter_headings(recursive=False)
-        if len(section) > 0:
-            return True, 'Heading'
-
-    elif node_type == 'Wikilink':
-        wikilink = parsed_text.filter_wikilinks(recursive=False)
-        if len(wikilink) > 0:
-            return True, 'Wikilink'
-
-    elif node_type == 'Media':
-        media = parsed_text.filter_wikilinks(recursive=False)
-        if len(media) > 0:
-            return True, 'Media'
-
-    elif node_type == 'Category':
-        category = parsed_text.filter_wikilinks(recursive=False)
-        if len(category) > 0:
-            return True, 'Category'
-
-    elif node_type == 'ExternalLink':
-        external_link = parsed_text.filter_external_links(recursive=False)
-        if len(external_link) > 0:
-            return True, 'External Link'
     return False, None
 
 
@@ -343,7 +377,7 @@ def get_diff_count(result):
                     for v_key, v_val in v.items():
                         edit_types[k][v_key] = edit_types[k].get(v_key, 0) + v_val
         else:
-            is_edit_type_found,edit_type = is_edit_type(text,r['type'])
+            is_edit_type_found,edit_type = is_change_in_edit_type(r['type'],text,'')
             if is_edit_type_found:
                 if edit_types.get(edit_type,{}):
                     edit_types[edit_type]['remove'] = edit_types[edit_type].get('remove', 0) + 1
@@ -362,7 +396,7 @@ def get_diff_count(result):
                     for v_key, v_val in v.items():
                         edit_types[k][v_key] = edit_types[k].get(v_key, 0) + v_val
         else:
-            is_edit_type_found,edit_type = is_edit_type(text,i['type'])
+            is_edit_type_found,edit_type = is_change_in_edit_type(i['type'],'',text)
             #check if edit_type in edit types dictionary
             if is_edit_type_found:
                 if edit_types.get(edit_type,{}):
@@ -381,7 +415,7 @@ def get_diff_count(result):
                         for v_key, v_val in v.items():
                             edit_types[k][v_key] = edit_types[k].get(v_key, 0) + v_val
             else:
-                is_edit_type_found,edit_type = is_change_in_edit_type(c['prev']['text'],c['curr']['text'],c['prev']['type'])
+                is_edit_type_found,edit_type = is_change_in_edit_type(c['prev']['type'],c['prev']['text'],c['curr']['text'])
                 #check if edit_type in edit types dictionary
                 if is_edit_type_found:
                     if edit_types.get(edit_type,{}):
@@ -391,7 +425,7 @@ def get_diff_count(result):
 
     for m in result['move']:
         text = m['prev']['text']       
-        is_edit_type_found,edit_type = is_edit_type(text, m['prev']['type'])
+        is_edit_type_found,edit_type = is_change_in_edit_type(m['prev']['type'],text,'')
         #check if edit_type in edit types dictionary
         if is_edit_type_found:
             if edit_types.get(edit_type,{}):
