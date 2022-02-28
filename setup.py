@@ -11,11 +11,22 @@ VERSION = '0.0.1'
 DESCRIPTION = 'Edit diffs and type detection for Wikipedia'
 LONG_DESCRIPTION = 'A package that allows edit diffs and type detection for Wikipedia.'
 
+
+# Dev dependencies
+EXTRAS_REQUIRE = {
+    "tests": ["pytest>=6.2.5"],
+}
+
+
+EXTRAS_REQUIRE["dev"] = (
+    EXTRAS_REQUIRE["tests"]
+)
+
 # Setting up
 setup(
     name="edittypes",
     version=VERSION,
-    author="geohci & Amamgbu (Isaac Johnson & Jesse Amamgbu )",
+    author="geohci & Amamgbu (Isaac Johnson & Jesse Amamgbu)",
     author_email="<amamgbujesse@yahoo.com>",
     description=DESCRIPTION,
     long_description_content_type="text/markdown",
@@ -24,11 +35,20 @@ setup(
     install_requires=['mwparserfromhell', 'anytree'],
     keywords=['python', 'wikipedia', 'edit types', 'edit diffs', 'wiki', 'edit detection'],
     classifiers=[
-        "Development Status :: 1 - Planning",
-        "Intended Audience :: Developers",
+        "Development Status :: 4 - Beta",
+        "License :: OSI Approved :: MIT License",
+        "Natural Language :: English",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Operating System :: Unix",
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: Microsoft :: Windows",
-    ]
+        
+    ],
+    extras_require=EXTRAS_REQUIRE,
+    include_package_data=True,
+    zip_safe=False,
 )

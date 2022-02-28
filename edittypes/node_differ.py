@@ -286,23 +286,23 @@ def is_change_in_edit_type(node_type,prev_wikitext='',curr_wikitext=''):
                 if len(comments) > 0:
                     return True, 'Comments'
 
-        elif node_type == 'ExternalLink':
+        elif node_type == 'External Link':
             if prev_wikitext != '' and curr_wikitext != '':
                 prev_filtered_external_links = prev_parsed_text.filter_external_links(recursive=False)[0]
                 curr_filtered_external_links = curr_parsed_text.filter_external_links(recursive=False)[0]
 
                 if prev_filtered_external_links.title != curr_filtered_external_links.title or \
                     prev_filtered_external_links.url != curr_filtered_external_links.url:
-                    return True, 'ExternalLink'
+                    return True, 'External Link'
             elif prev_wikitext != '' and curr_wikitext=='':
                 external_links = prev_parsed_text.filter_external_links(recursive=False)
                 if len(external_links) > 0:
-                    return True, 'ExternalLink'
+                    return True, 'External Link'
 
             elif prev_wikitext == '' and curr_wikitext != '':
                 external_links = curr_parsed_text.filter_external_links(recursive=False)
                 if len(external_links) > 0:
-                    return True, 'ExternalLink'
+                    return True, 'External Link'
         else:
             return False, None 
     except Exception:
