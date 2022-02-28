@@ -24,7 +24,7 @@ EXTRAS_REQUIRE["dev"] = (
 
 # Setting up
 setup(
-    name="edittypes",
+    name="mwedittypes",
     version=VERSION,
     author="geohci & Amamgbu (Isaac Johnson & Jesse Amamgbu)",
     author_email="<amamgbujesse@yahoo.com>",
