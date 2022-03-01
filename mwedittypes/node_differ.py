@@ -1,7 +1,7 @@
-import re  # not technically needed because part of edittypes.tokenizer but that's confusing
+import re  # not technically needed because part of mwedittypes.tokenizer but that's confusing
 
 import mwparserfromhell as mw
-from edittypes.tokenizer import *
+from mwedittypes.tokenizer import *
 
 NON_ENGLISH_UNICODE = '''[\u0609\u060a\u060c\u060d\u061b\u061e\u061f\u066a\u066b\u066c
 \u070a\u070b\u070c\u070d\u07f7\u07f8\u07f9\u0830\u0831\u0832\u0833\u0834\u0835
@@ -215,20 +215,20 @@ def is_change_in_edit_type(node_type,prev_wikitext='',curr_wikitext=''):
         elif node_type == 'Gallery':
             #Check if a gallery changes
             if prev_wikitext != '' and curr_wikitext != '':
-                prev_filtered_gallery = prev_parsed_text.filter_tags(matches=lambda node: node.tag == 'Gallery',recursive=False)
-                curr_filtered_gallery = curr_parsed_text.filter_tags(matches=lambda node: node.tag == 'Gallery',recursive=False)
+                prev_filtered_gallery = prev_parsed_text.filter_tags(matches=lambda node: node.tag == 'gallery',recursive=False)
+                curr_filtered_gallery = curr_parsed_text.filter_tags(matches=lambda node: node.tag == 'gallery',recursive=False)
 
                 if len(prev_filtered_gallery) > 0  and len(curr_filtered_gallery) > 0:
                     if prev_filtered_gallery[0].contents != curr_filtered_gallery[0].contents:
                         return True, 'Gallery'
 
             elif prev_wikitext != '' and curr_wikitext=='':
-                gallery = prev_parsed_text.filter_tags(matches=lambda node: node.tag == 'Gallery',recursive=False)
+                gallery = prev_parsed_text.filter_tags(matches=lambda node: node.tag == 'gallery',recursive=False)
                 if len(gallery) > 0:
                     return True, 'Gallery'
 
             elif prev_wikitext == '' and curr_wikitext != '':
-                gallery = curr_parsed_text.filter_tags(matches=lambda node: node.tag == 'Gallery',recursive=False)
+                gallery = curr_parsed_text.filter_tags(matches=lambda node: node.tag == 'gallery',recursive=False)
                 if len(gallery) > 0:
                     return True, 'Gallery'
             
