@@ -1,4 +1,4 @@
-[![Build status](https://github.com/geohci/edit-types/actions/workflows/test-app.yml/badge.svg?branch=main)](https://github.com/geohci/edit-types/actions/workflows/test-app.yml)
+[![Build status](https://github.com/geohci/edit-types/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/geohci/edit-types/actions/workflows/test.yml)
 
 # edit-types
 Edit diffs and type detection for Wikipedia. The goal is to transform unstructured edits to Wikipedia articles into a structured summary of what actions were taken in the edit.
