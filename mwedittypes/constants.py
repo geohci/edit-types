@@ -1,5 +1,6 @@
 import re
 
+# https://commons.wikimedia.org/wiki/Commons:File_types
 IMAGE_EXTENSIONS = ['.jpg', '.png', '.svg', '.gif', '.jpeg', '.tif', '.bmp', '.webp', '.xcf']
 VIDEO_EXTENSIONS = ['.ogv', '.webm', '.mpg', '.mpeg']
 AUDIO_EXTENSIONS = ['.ogg', '.mp3', '.mid', '.webm', '.flac', '.wav', '.oga']
@@ -13,6 +14,9 @@ EXTEN_PATTERN = re.compile(fr'([\w ,().-]+){EXTEN_REGEX}', flags=re.UNICODE)
 MEDIA_PREFIXES = ['File', 'Image', 'Media']
 CAT_PREFIXES = ['Category']
 
+# Source: for each Wikipedia language code (example shown for "ab"), aliases for namespaces -2 and 6 accessed via this API call:
+# https://ab.wikipedia.org/w/api.php?action=query&meta=siteinfo&siprop=namespacealiases|namespaces&format=json&formatversion=2
+# Last accessed: 21 December 2021
 MEDIA_ALIASES = {
     "ab": ["Медиа", "Файл", "Афаил", "Амедиа", "Изображение"],
     "ace": ["Beureukaih", "Gambar", "Alat", "Berkas"],
@@ -268,6 +272,9 @@ MEDIA_ALIASES = {
     "zh-yue": ["檔", "档", "文件", "图", "媒體", "圖", "档案", "图像", "圖像", "媒体", "檔案"],
 }
 
+# Source: for each Wikipedia language code (example shown for "ab"), aliases for namespace 14 accessed via this API call:
+# https://ab.wikipedia.org/w/api.php?action=query&meta=siteinfo&siprop=namespacealiases|namespaces&format=json&formatversion=2
+# Last accessed: 21 December 2021
 CAT_ALIASES = {
     "ab": ["Категория", "Акатегориа"],
     "ace": ["Kawan", "Kategori"],

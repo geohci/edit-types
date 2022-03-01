@@ -1,12 +1,17 @@
 [![Build status](https://github.com/geohci/edit-types/actions/workflows/test-app.yml/badge.svg?branch=main)](https://github.com/geohci/edit-types/actions/workflows/test-app.yml)
 
-# edit-types
-Edit diffs and type detection for Wikipedia. The goal is to transform unstructured edits to Wikipedia articles into a structured summary of what actions were taken in the edit.
+# mwedittypes
+Edit diffs and type detection for Wikipedia.
+The goal is to transform unstructured edits to Wikipedia articles into a structured summary of what actions were taken in the edit.
 
-Fundamentally, this requires two technologies: 1) the ability to compute diffs between revisions of wikitext, and, 2) the ability to map these diffs to specific actions.
+## Installation
+You can install `mwedittypes` with `pip`:
+```
+$ pip install mwedittypes
+```
 
 ## Example
-If one revision of wikitext is as folows:
+If one revision of wikitext is as follows:
 ```
 {{Short description|Austrian painter}}
 '''Karl Josef Aigen''' (8 October 1684 – 22 October 1762) was a landscape painter, born at Olomouc.
@@ -23,10 +28,24 @@ The changes that happened would be:
 
 This repository would return this in the following structure: `{'Template':{'change':1}, 'Wikilink':{'insert':1}`.
 
-## Code
+### Basic Usage
+```
+>>> from mwedittypes import EditTypes
+>>> prev_wikitext = '{{Short description|Austrian painter}}'
+>>> curr_wikitext = '{{Short description|Austrian [[landscape painter]]}}'
+>>> et = EditTypes(prev_wikitext, curr_wikitext, lang='en', timeout=5)
+>>> et.get_diff()
+{'Wikilink': {'insert': 1}, 'Template': {'change': 1}}
+```
+
+## Development
+We are happy to receive contributions though will default to keeping the code here relatively general (not overly customized to individual use-cases).
+Please reach out or open an issue for the changes you would like to merge so that we can discuss beforehand.
+
+### Code Summary
 The code for computing diffs and running edit-type detection can be found in two files:
-* `edit-types/tree_differ.py`: this is the first stage of the diffing pipeline that detects high-level changes.
-* `edit-types/node_differ.py`: this is the second stage of the diffing pipeline that takes the tree_differ output, further processes it, and counts up the edit types.
+* `mwedittypes/tree_differ.py`: this is the first stage of the diffing pipeline that detects high-level changes.
+* `mwedittypes/node_differ.py`: this is the second stage of the diffing pipeline that takes the tree_differ output, further processes it, and counts up the edit types.
 
 While the diffing/counting is not trivial, the trickiest part of the process is correctly parsing the wikitext into nodes (Templates, Wikilinks, etc.).
 This is almost all done via the amazing [mwparserfromhell](https://github.com/earwig/mwparserfromhell) library with a few tweaks in the tree differ:
@@ -39,10 +58,10 @@ To accurately, but efficiently, describe the scale of textual changes in edits, 
 This is generally the toughest part of diffing text but because we do not need to visually describe the diff, just estimate the scale of how much changed, we can use relatively simple methods.
 To do this, we break down text changes into five categories and identify how much of each changed: paragraphs, sentences, words, punctuation, and whitespace.
 
-## Tests
+### Testing
 The tests for node/tree differs are contained within the `tests` directory.
-They can be run via [pytest](https://docs.pytest.org/en/6.2.x/#).
-We are not even close to full coverage which would be at least 12 node types (template/text/etc.) * 4 edit types (insert/remove/change/move) plus probably some non-English and more complex diff tests.
+They can be run via [pytest](https://docs.pytest.org).
+We are not even close to full coverage yet given the numerous node types (template, text, etc.) and four actions (insert/remove/change/move) and varying languages for e.g., Text or Category/Media nodes, but we are working on expanding coverage.
 
 ## Documentation
 * For more background, see: https://meta.wikimedia.org/wiki/Research:Wikipedia_Edit_Types
