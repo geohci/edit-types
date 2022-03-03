@@ -1,7 +1,7 @@
 import copy
 import json
 
-from context import td  # tree-differ
+from context import EditTypes  # tree-differ
 
 # Basic wikitext to play with that has most of the things we're interested in (image, categories, templates, etc.)
 # Source: https://en.wikipedia.org/wiki/Karl_Aigen
@@ -46,9 +46,6 @@ The [[Österreichische Galerie Belvedere|Gallery of the Belvedere]] in Vienna ha
 {{Austria-painter-stub}}
 """
 
-def get_diff(prev_wt, curr_wt, lang):
-    return td.get_diff(prev_wt, curr_wt, lang)
-
 def check_change_counts(diff, expected_changes):
     diff = copy.deepcopy(diff)
     errors = []
@@ -77,16 +74,18 @@ def test_insert_category():
                                           '[[Category:Artists from Olomouc]]\n[[Category:TEST CATEGORY]]',
                                           1)
     expected_changes = [('insert', 'S#5: External links (L2)', 'Category')]
-    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
-    check_change_counts(diff, expected_changes)
+    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
+    diff.get_diff()
+    check_change_counts(diff.tree_diff, expected_changes)
 
 def test_insert_link():
     curr_wikitext = prev_wikitext.replace('He was a pupil of the Olomouc painter',
                                           'He was a [[pupil]] of the Olomouc painter',
                                           1)
     expected_changes = [('insert', 'S#2: Life (L2)', 'Wikilink')]
-    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
-    check_change_counts(diff, expected_changes)
+    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
+    diff.get_diff()
+    check_change_counts(diff.tree_diff, expected_changes)
 
 def test_move_template():
     curr_wikitext = prev_wikitext.replace('{{Austria-painter-stub}}',
@@ -94,24 +93,27 @@ def test_move_template():
                                           1)
     curr_wikitext = '{{Austria-painter-stub}}' + curr_wikitext
     expected_changes = [('move', 'S#5: External links (L2)', 'Template')]
-    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
-    check_change_counts(diff, expected_changes)
+    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
+    diff.get_diff()
+    check_change_counts(diff.tree_diff, expected_changes)
 
 def test_change_heading():
     curr_wikitext = prev_wikitext.replace('===Works===',
                                           '===NotWorks===',
                                           1)
     expected_changes = [('change', 'S#3: Works (L3)', 'Heading')]
-    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
-    check_change_counts(diff, expected_changes)
+    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
+    diff.get_diff()
+    check_change_counts(diff.tree_diff, expected_changes)
 
 def test_remove_formatting():
     curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen'''",
                                           "Karl Josef Aigen",
                                           1)
     expected_changes = [('remove', 'S#1: Lede (L2)', 'Text Formatting')]
-    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
-    check_change_counts(diff, expected_changes)
+    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
+    diff.get_diff()
+    check_change_counts(diff.tree_diff, expected_changes)
 
 table = """{| border="1" cellspacing="0" cellpadding="5"
 |- bgcolor="#cccccc"
@@ -145,8 +147,9 @@ def test_insert_table():
                         ('insert', 'S#5: External links (L2)', 'Wikilink'),
                         ('insert', 'S#5: External links (L2)', 'Text Formatting'),
                         ('insert', 'S#5: External links (L2)', 'Text Formatting')]
-    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
-    check_change_counts(diff, expected_changes)
+    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
+    diff.get_diff()
+    check_change_counts(diff.tree_diff, expected_changes)
 
 gallery = """<gallery widths="190px" heights="190px" perrow="4">
 File:Lucas Cranach d.Ä. - Bildnis des Moritz Büchner.jpg|[[Lucas Cranach the Elder]], ''Portrait of Moritz Buchner'', 1518
@@ -159,12 +162,14 @@ def test_insert_gallery():
                         ('insert', 'S#5: External links (L2)', 'Media'),
                         ('insert', 'S#5: External links (L2)', 'Wikilink'),
                         ('insert', 'S#5: External links (L2)', 'Text Formatting')]
-    diff = get_diff(prev_wikitext, curr_wikitext, lang='en')
-    check_change_counts(diff, expected_changes)
+    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
+    diff.get_diff()
+    check_change_counts(diff.tree_diff, expected_changes)
 
 def test_table_change():
     curr_wikitext = table.replace('general election', 'gen elec', 1)
     expected_changes = [('change', 'S#1: Lede (L2)', 'Wikilink'),
                         ('change', 'S#1: Lede (L2)', 'Table')]
-    diff = get_diff(table, curr_wikitext, lang='en')
-    check_change_counts(diff, expected_changes)
+    diff = EditTypes(table, curr_wikitext, lang='en')
+    diff.get_diff()
+    check_change_counts(diff.tree_diff, expected_changes)

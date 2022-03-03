@@ -4,7 +4,7 @@ from anytree import PostOrderIter, NodeMixin
 from anytree.util import leftsibling
 import mwparserfromhell as mw
 
-from edittypes.constants import *
+from mwedittypes.constants import *
 
 
 # equivalent of main function
@@ -39,15 +39,15 @@ def simple_node_class(mwnode, lang='en'):
             tag_type = str(mwnode.tag)
             # https://en.wikipedia.org/wiki/Help:Wikitext
             # bold, italic, strikethrough, underline
-            # horizontal rule (hr is not really text formatting but close enough)
+            # horizontal rule and line break (hr is not really text formatting but close enough)
             # pre and nowiki are for mono-spaced text (I leave out `code` because it generally contains code not text)
             # small / big / sub / sup all affect text size
             if tag_type in ('b', 'i', 's', 'u', 'del', 'ins',
-                            'hr',
+                            'hr', 'br',
                             'pre', 'nowiki',
-                            'small', 'big', 'sub', 'sup'):
+                            'small', 'big', 'sub', 'sup', 'font', 'blockquote', 'span', 'center'):
                 return 'Text Formatting'
-            elif tag_type in ('li', 'dt', 'dd'):
+            elif tag_type in ('li', 'dt', 'dd', 'ul', 'ol', 'dl'):
                 return 'List'
             elif tag_type == 'table':
                 return 'Table'
@@ -57,6 +57,8 @@ def simple_node_class(mwnode, lang='en'):
                 return 'Gallery'
             elif tag_type == 'ref':
                 return 'Reference'
+            elif tag_type == 'noinclude':
+                return 'Comment'
             # any others I missed -- e.g., div, meta, etc.
             else:
                 return tag_type.capitalize() + ' Tag'
