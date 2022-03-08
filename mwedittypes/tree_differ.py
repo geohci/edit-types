@@ -37,21 +37,13 @@ def simple_node_class(mwnode, lang='en'):
                 nc = 'Category'
         elif nc == 'Tag':
             tag_type = str(mwnode.tag)
-            # https://en.wikipedia.org/wiki/Help:Wikitext
-            # bold, italic, strikethrough, underline
-            # horizontal rule and line break (hr is not really text formatting but close enough)
-            # pre and nowiki are for mono-spaced text (I leave out `code` because it generally contains code not text)
-            # small / big / sub / sup all affect text size
-            if tag_type in ('b', 'i', 's', 'u', 'del', 'ins',
-                            'hr', 'br',
-                            'pre', 'nowiki',
-                            'small', 'big', 'sub', 'sup', 'font', 'blockquote', 'span', 'center'):
+            if tag_type in TEXT_FORMATTING_TAGS:
                 return 'Text Formatting'
-            elif tag_type in ('li', 'dt', 'dd', 'ul', 'ol', 'dl'):
+            elif tag_type in LIST_TAGS:
                 return 'List'
             elif tag_type == 'table':
                 return 'Table'
-            elif tag_type in ('th', 'tr', 'td'):
+            elif tag_type in TABLE_ELEMENTS_TAGS:
                 return 'Table Element'
             elif tag_type == 'gallery':
                 return 'Gallery'
