@@ -47,7 +47,7 @@ def test_insert_category():
     curr_wikitext = prev_wikitext.replace('[[Category:Artists from Olomouc]]\n',
                                           '[[Category:Artists from Olomouc]]\n[[Category:TEST CATEGORY]]',
                                           1)
-    expected_changes = {'Category':{'insert':1}}
+    expected_changes = {'Category':{'insert':1}, 'Section':{'change':1}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
@@ -55,7 +55,7 @@ def test_change_category():
     curr_wikitext = prev_wikitext.replace('[[Category:Artists from Olomouc]]',
                                           '[[Category:Artists from somewhere else]]',
                                           1)
-    expected_changes = {'Category':{'change':1}}
+    expected_changes = {'Category':{'change':1}, 'Section':{'change':1}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
@@ -64,7 +64,7 @@ def test_remove_formatting():
     curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen'''",
                                           "Karl Josef Aigen",
                                           1)
-    expected_changes = {'Text Formatting':{'remove':1}}
+    expected_changes = {'Text Formatting':{'remove':1},'Section':{'change':1}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
@@ -72,7 +72,7 @@ def test_change_formatting():
     curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen'''",
                                           "''Karl Josef Aigen''",
                                           1)
-    expected_changes = {'Text Formatting':{'change':1}}
+    expected_changes = {'Text Formatting':{'change':1},'Section':{'change':1}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
@@ -81,7 +81,7 @@ def test_insert_template():
     curr_wikitext = prev_wikitext.replace('{{Use dmy dates|date=April 2017}}\n',
                                           '{{Use dmy dates|date=April 2017}}\n{{Use dmy new dates|date=April 2017}}',
                                           1)
-    expected_changes = {'Template':{'insert':1}}
+    expected_changes = {'Template':{'insert':1}, 'Section':{'change':1}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
@@ -90,7 +90,7 @@ def test_change_template():
     curr_wikitext = prev_wikitext.replace('{{Use dmy dates|date=April 2017}}\n',
                                           '{{Use dmy dates|date=April 2018}}\n',
                                           1)
-    expected_changes = {'Template':{'change':1}}
+    expected_changes = {'Template':{'change':1}, 'Section':{'change':1}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
@@ -99,7 +99,7 @@ def test_nested_nodes_ref_temp_link():
     curr_wikitext = prev_wikitext.replace("<ref>{{Bryan (3rd edition)|title=Aigen, Karl |volume=1}}</ref>",
                                           "<ref>{{Bryan (3rd edition)|title=[[Aigen, Karl]] |volume=1}}</ref>",
                                           1)
-    expected_changes = {'Reference':{'change':1},'Wikilink':{'insert':1},'Template':{'change':1}}
+    expected_changes = {'Reference':{'change':1},'Wikilink':{'insert':1},'Template':{'change':1}, 'Section':{'change':1}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
@@ -107,7 +107,7 @@ def test_swap_templates():
     curr_wikitext = prev_wikitext.replace("{{commons category}}\n{{Authority control}}",
                                           "{{Authority control}}\n{{commons category}}",
                                           1)
-    expected_changes = {'Template':{'move':2}}
+    expected_changes = {'Template':{'move':2}, 'Section':{'change':1}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
@@ -149,7 +149,7 @@ def test_text_change():
     curr_wikitext = prev_wikitext.replace('Aigen was born in Olomouc on 8 October 1685, the son of a goldsmith.',
                                           'Aigen-Abe was born in Olomouc on 9 October 1685, the daughter of a goldsmith.',
                                           1)
-    expected_changes = {'Paragraph':{'change':1}, 'Sentence':{'change':1}, 'Word':{'change':3},'Punctuation':{'change':1}}
+    expected_changes = {'Paragraph':{'change':1}, 'Sentence':{'change':1}, 'Word':{'change':3},'Punctuation':{'change':1}, 'Section':{'change':1}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
@@ -158,7 +158,7 @@ def test_unbracketed_media():
     curr_wikitext = prev_wikitext.replace('===Works===\n',
                                           '===Works===\n<gallery>\nFile:Carl Aigen Fischmarkt.jpg|thumb|Caption\n</gallery>',
                                           1)
-    expected_changes = {'Gallery': {'insert': 1}, 'Media':{'insert':1}}
+    expected_changes = {'Gallery': {'insert': 1}, 'Media':{'insert':1}, 'Section':{'change':1}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
@@ -175,6 +175,6 @@ def test_nested_nodes_media_format():
     curr_wikitext = prev_wikitext.replace("[[File:Carl Aigen Fischmarkt.jpg|thumb|''Fischmarkt'' by Karl Aigen]]",
                                           "[[File:Carl Aigen Fischmarkt.jpg|thumb|Fischmarkt by Karl Aigen<ref>A reference</ref>]]",
                                           1)
-    expected_changes = {'Text Formatting':{'remove':1},'Media':{'change':1}, 'Reference':{'insert':1}}
+    expected_changes = {'Text Formatting':{'remove':1},'Media':{'change':1}, 'Reference':{'insert':1}, 'Section':{'change':1}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
