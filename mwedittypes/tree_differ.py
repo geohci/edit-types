@@ -241,10 +241,10 @@ class WikitextTree:
                 sec_hash = sec_to_name(s, sidx)
                 sec_text = ''.join([str(n) for n in s.nodes])
                 self.secname_to_text[sec_hash] = sec_text
-                s_node = OrderedNode(sec_hash, ntype="Heading", text=s.nodes[0], text_hash=sec_text, char_offset=0,
+                s_node = OrderedNode(sec_hash, ntype="Section", text=s.nodes[0], text_hash=sec_text, char_offset=0,
                                      section=sec_hash, parent=self.root)
-                char_offset = len(s_node.text)
-                for n in s.nodes[1:]:
+                char_offset = 0
+                for n in s.nodes:
                     n_node = OrderedNode(node_to_name(n, self.lang), ntype=simple_node_class(n, self.lang), text=n,
                                          char_offset=char_offset, section=s_node.name, parent=s_node)
                     char_offset += len(str(n))
@@ -252,9 +252,8 @@ class WikitextTree:
     def expand_nested(self):
         """Expand nested nodes in tree -- e.g., Ref tags with templates/links contained in them."""
         for n in PostOrderIter(self.root):
-            if n.ntype != 'Heading' and n.name != 'root' and n.ntype != 'Text':  # tag, link, etc.
+            if n.ntype not in ('Article', 'Section', 'Heading', 'Text'):  # leaves tag, link, etc.
                 n.unnest(self.lang)
-
 
 class Differ:
     """
@@ -318,8 +317,8 @@ class Differ:
 
     def prune_sections(self, t1, t2):
         """Prune nodes from any sections that align across revisions"""
-        t1_sections = [n for n in PostOrderIter(t1.root) if n.ntype == "Heading"]
-        t2_sections = [n for n in PostOrderIter(t2.root) if n.ntype == "Heading"]
+        t1_sections = [n for n in PostOrderIter(t1.root) if n.ntype == "Section"]
+        t2_sections = [n for n in PostOrderIter(t2.root) if n.ntype == "Section"]
         for secnode1 in t1_sections:
             for sn2_idx in range(len(t2_sections)):
                 secnode2 = t2_sections[sn2_idx]
@@ -380,13 +379,13 @@ class Differ:
         # Use arbitrarily high-value for nodetype changes to effectively ban.
         elif n1.ntype != n2.ntype:
             return self.nodetype_chg_cost
-        # next two functions check if both nodes are the same (criteria varies by nodetype)
-        elif n1.ntype == 'Heading':
-            if n1.text == n2.text:
-                return 0
-            else:
-                return self.chg_cost
         elif n1.text_hash == n2.text_hash:
+            return 0
+        # if both sections, assert no cost (changes will be captured by headings)
+        # except we want to detect moves of sections
+        elif n1.ntype == 'Section':
+            if not n1.children and not n2.children:
+                return self.chg_cost
             return 0
         # otherwise, same node types and not the same, then change cost
         else:
@@ -478,7 +477,11 @@ class Differ:
                         transactions[i][j] = cc
 
     def get_corresponding_nodes(self):
-        """Explain transactions"""
+        """Explain transactions.
+
+        Skip 'Section' operations as they aren't real nodes and
+        any changes to them will be captured via Headings etc.
+        """
         transactions = self.transactions[len(self.t1) - 1][len(self.t2) - 1]
         remove = []
         insert = []
@@ -486,14 +489,17 @@ class Differ:
         for i in range(0, len(transactions)):
             if transactions[i][0] is None:
                 ins_node = self.t2[transactions[i][1]]
-                insert.append(ins_node)
+                if ins_node.ntype != 'Section' or not ins_node.children:
+                    insert.append(ins_node)
             elif transactions[i][1] is None:
                 rem_node = self.t1[transactions[i][0]]
-                remove.append(rem_node)
+                if rem_node.ntype != 'Section' or not rem_node.children:
+                    remove.append(rem_node)
             else:
                 prev_node = self.t1[transactions[i][0]]
                 curr_node = self.t2[transactions[i][1]]
-                change.append((prev_node, curr_node))
+                if prev_node.ntype != 'Section' or not prev_node.children:
+                    change.append((prev_node, curr_node))
         diff = {'remove': remove, 'insert': insert, 'change': change}
         self.detect_moves(diff)
         return Diff(nodes_removed=diff['remove'], nodes_inserted=diff['insert'],
@@ -572,12 +578,19 @@ class Diff:
         self.insert = [n.dump() for n in nodes_inserted]
         self.change = [{'prev': pn.dump(), 'curr': cn.dump()} for pn, cn in nodes_changed]
         self.move = [{'prev': pn.dump(), 'curr': cn.dump()} for pn, cn in nodes_moved]
+        self.sections_p_to_c = {}
+        self.sections_c_to_p = {}
+        self.processed = False
 
     def post_process(self, sections_prev, sections_curr, lang):
-        self.merge_text_changes(sections_prev, sections_curr, lang)
-        return self.dump(sections_prev, sections_curr)
+        if not self.processed:
+            self._section_mapping(sections_prev, sections_curr)
+            self._merge_text_changes(sections_prev, sections_curr, lang)
+            self._build_result(sections_prev, sections_curr)
+            self.processed = True
+        return self.result
 
-    def dump(self, sections_prev, sections_curr):
+    def _build_result(self, sections_prev, sections_curr):
         sp = {}
         sc = {}
         for n in self.remove:
@@ -585,29 +598,36 @@ class Diff:
             sp[sec_name] = sections_prev[sec_name]
         for n in self.insert:
             sec_name = n['section']
-            sc[sec_name] = sections_curr[sec_name]
+            # update name to section in previous revision for consistency (if it exists)
+            sec_id = self.sections_c_to_p[sec_name] or sec_name
+            n['section'] = sec_id
+            sc[sec_id] = sections_curr[sec_name]
         for n in self.change + self.move:
             pn = n['prev']
             cn = n['curr']
             psec_name = pn['section']
             sp[psec_name] = sections_prev[psec_name]
             csec_name = cn['section']
-            sc[csec_name] = sections_curr[csec_name]
+            # update name to section in previous revision for consistency (if it exists)
+            csec_id = self.sections_c_to_p[csec_name] or csec_name
+            cn['section'] = csec_id
+            sc[csec_id] = sections_curr[csec_name]
 
-        return {'remove': self.remove, 'insert': self.insert, 'change': self.change, 'move': self.move,
-                'sections-prev': sp, 'sections-curr': sc}
+        self.result = {'remove': self.remove, 'insert': self.insert, 'change': self.change, 'move': self.move,
+                       'sections-prev': sp, 'sections-curr': sc}
 
-    def section_mapping(self, sections_prev, sections_curr):
+    def _section_mapping(self, sections_prev, sections_curr):
         """Build mapping of sections between previous and current versions of article."""
         prev = list(sections_prev.keys())
         curr = list(sections_curr.keys())
         p_to_c = {}
         c_to_p = {}
         removed = []
+        # removed sections map to null in current; inserted sections map to null in previous
         for n in self.remove:
             if n['type'] == 'Heading':
                 for i, s in enumerate(prev):
-                    if s == n['name']:
+                    if s == n['section']:
                         removed.append(i)
                         break
         for idx in sorted(removed, reverse=True):
@@ -617,7 +637,7 @@ class Diff:
         for n in self.insert:
             if n['type'] == 'Heading':
                 for i, s in enumerate(curr):
-                    if s == n['name']:
+                    if s == n['section']:
                         inserted.append(i)
                         break
         for idx in sorted(inserted, reverse=True):
@@ -625,7 +645,7 @@ class Diff:
             curr.pop(idx)
 
         # changes happen in place so don't effect structure of doc and can be ignored
-
+        # for moved sections, reorder mapping so they are aligned again for dumping
         for c in self.move:
             pn = c['prev']
             cn = c['curr']
@@ -633,11 +653,11 @@ class Diff:
                 prev_idx = None
                 curr_idx = None
                 for i, s in enumerate(prev):
-                    if s == pn['name']:
+                    if s == pn['section']:
                         prev_idx = i
                         break
                 for i, s in enumerate(curr):
-                    if s == cn['name']:
+                    if s == cn['section']:
                         curr_idx = i
                         break
                 if prev_idx is not None and curr_idx is not None:
@@ -648,11 +668,11 @@ class Diff:
             p_to_c[prev[i]] = curr[i]
             c_to_p[curr[i]] = prev[i]
 
-        return p_to_c, c_to_p
+        self.sections_p_to_c = p_to_c
+        self.sections_c_to_p = c_to_p
 
-    def merge_text_changes(self, sections_prev, sections_curr, lang='en'):
+    def _merge_text_changes(self, sections_prev, sections_curr, lang='en'):
         """Replace isolated text changes with section-level text changes."""
-        p_to_c, c_to_p = self.section_mapping(sections_prev, sections_curr)
         changes = []
         prev_secs_checked = set()
         curr_secs_checked = set()
@@ -663,7 +683,7 @@ class Diff:
                 if prev_sec not in prev_secs_checked:
                     prev_secs_checked.add(prev_sec)
                     prev_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_prev[prev_sec]).nodes])
-                    curr_sec = p_to_c[prev_sec]
+                    curr_sec = self.sections_p_to_c[prev_sec]
                     curr_secs_checked.add(curr_sec)
                     if curr_sec is None:
                         changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
@@ -683,7 +703,7 @@ class Diff:
                 if curr_sec not in curr_secs_checked:
                     curr_secs_checked.add(curr_sec)
                     curr_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_curr[curr_sec]).nodes])
-                    prev_sec = c_to_p[curr_sec]
+                    prev_sec = self.sections_c_to_p[curr_sec]
                     prev_secs_checked.add(prev_sec)
                     if prev_sec is None:
                         changes.append({'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,

@@ -29,7 +29,7 @@ class Tokenizer:
 
     def get_whitespace(self, text):
         #Get whitespaces. Detects newlines, return characters as well as spaces as whitespaces.
-        whitespace = re.findall(r'[\s]+',text)
+        whitespace = re.findall(r'[\s]',text)
         return whitespace
     
 
@@ -46,12 +46,12 @@ class Tokenizer:
         #Minimum sentence size is three words. So a sentence needs to have atleast 3 words in it
         min_sentence_size = 2
         sentences = re.split(r'[!?]+|(?<!\.)\.(?!(?<=\d.)\d)(?!\.)', text)
-        sentences = [ sentence for sentence in sentences if len(re.findall(r'\w+',sentence)) >= min_sentence_size]
+        sentences = [ sentence.strip() for sentence in sentences if len(re.findall(r'\w+',sentence)) >= min_sentence_size]
         return sentences
 
     def get_paragraphs(self, text):
         if text != '':
-            paragraphs = [paragraph for paragraph in re.split(r'\n{2}', text) if len(self.get_words(paragraph)) > 0]
+            paragraphs = [paragraph.strip() for paragraph in re.split(r'\n{2}', text) if len(self.get_words(paragraph)) > 0]
 
             return paragraphs
         return []

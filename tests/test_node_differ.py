@@ -2,7 +2,6 @@ from context import EditTypes, parse_change_text
 
 # Basic wikitext to play with that has most of the things we're interested in (image, categories, templates, etc.)
 # Source: https://en.wikipedia.org/wiki/Karl_Aigen
-# NOTE: I add the "==Lede==" section at the top as a useful preprocessing step
 prev_wikitext = """{{Short description|Austrian painter}}
 '''Karl Josef Aigen''' (8 October 1684 – 22 October 1762) was a landscape painter, born at [[Olomouc]].
 
@@ -162,19 +161,41 @@ def test_unbracketed_media():
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
-# def test_move_template():
-#     curr_wikitext = prev_wikitext.replace('\n{{Use dmy dates|date=April 2017}}',
-#                                           '{{Use dmy dates|date=April 2017}}\n',
-#                                           1)
-#     expected_changes = {'Template':{'move':1}}
-#     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-#     assert expected_changes == diff
-
 def test_nested_nodes_media_format():
-    # Known that this test fails right now -- see https://github.com/geohci/edit-types/issues/13
     curr_wikitext = prev_wikitext.replace("[[File:Carl Aigen Fischmarkt.jpg|thumb|''Fischmarkt'' by Karl Aigen]]",
                                           "[[File:Carl Aigen Fischmarkt.jpg|thumb|Fischmarkt by Karl Aigen<ref>A reference</ref>]]",
                                           1)
     expected_changes = {'Text Formatting':{'remove':1},'Media':{'change':1}, 'Reference':{'insert':1}, 'Section':{'change':1}}
+    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert expected_changes == diff
+
+def test_complicated_sections():
+    # break section into two (no text changes, just new heading)
+    curr_wikitext = prev_wikitext.replace("\nHe died at Vienna",
+                                          "===Death===\nHe died at Vienna",
+                                          1)
+    # category change in later section
+    curr_wikitext = curr_wikitext.replace("[[Category:Artists from Olomouc]]",
+                                          "[[Category:Artists in Olomouc]]",
+                                          1)
+    expected_changes = {'Heading':{'insert':1},'Category':{'change':1}, 'Section':{'change':3}}
+    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert expected_changes == diff
+
+
+def test_reorder_text():
+    curr_wikitext = prev_wikitext.replace("He was a pupil of the Olomouc painter Dominik Maier.",
+                                          "He the a pupil of was Olomouc painter Maier Dominik.",
+                                          1)
+    expected_changes = {'Sentence':{'change':1},'Paragraph':{'change':1}, 'Section':{'change':1}}
+    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert expected_changes == diff
+
+def test_moved_section():
+    # swap Works and References sections with no other changess
+    curr_wikitext = prev_wikitext.replace("\n\n===Works===\nThe [[Österreichische Galerie Belvedere|Gallery of the Belvedere]] in Vienna has two works by him, both scenes with figures.<ref>{{Bryan (3rd edition)|title=Aigen, Karl |volume=1}}</ref>\n\n==References==\n{{reflist}}",
+                                          "\n\n==References==\n{{reflist}}\n\n===Works===\nThe [[Österreichische Galerie Belvedere|Gallery of the Belvedere]] in Vienna has two works by him, both scenes with figures.<ref>{{Bryan (3rd edition)|title=Aigen, Karl |volume=1}}</ref>",
+                                          1)
+    expected_changes = {'Section':{'move':1, 'change':2}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
