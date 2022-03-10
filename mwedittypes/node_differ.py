@@ -347,17 +347,17 @@ def get_diff_count(result):
 
     edit_types = {}
     section_titles = set()
+    prev_text = []
+    curr_text = []
+    # loop through all removed nodes
     for r in result['remove']:
-        text = r['text']
-        if r['type'] == 'Text':
-            is_text_change_found = parse_change_text(r['type'], text,'')
-            if is_text_change_found:
-                section_titles.add(r['section'])
-                for k,v in is_text_change_found.items():
-                    if len(edit_types.get(k,{})) == 0:
-                        edit_types[k] = {}
-                    for v_key, v_val in v.items():
-                        edit_types[k][v_key] = edit_types[k].get(v_key, 0) + v_val
+        text = r['text']  # wikitext of the node
+        # if node is text, just check whether there's anything and retain for later
+        # because all the text is processed at once at the end
+        if r['type'] == 'Text' and text:
+            prev_text.append(text)
+            section_titles.add(r['section'])
+        # non-text node: verify/fine-tune the edit type and add to results dictionary
         else:
             is_edit_type_found,edit_type = is_change_in_edit_type(r['type'],text,'')
             if is_edit_type_found:
@@ -366,19 +366,12 @@ def get_diff_count(result):
                     edit_types[edit_type]['remove'] = edit_types[edit_type].get('remove', 0) + 1
                 else:
                     edit_types[edit_type] = {'remove':1}
-        
 
     for i in result['insert']:
         text = i['text']
-        if i['type'] == 'Text':
-            is_text_change_found = parse_change_text(i['type'], text,'')
-            if is_text_change_found:
-                section_titles.add(i['section'])
-                for k,v in is_text_change_found.items():
-                    if len(edit_types.get(k,{})) == 0:
-                        edit_types[k] = {}
-                    for v_key, v_val in v.items():
-                        edit_types[k][v_key] = edit_types[k].get(v_key, 0) + v_val
+        if i['type'] == 'Text' and text:
+            curr_text.append(text)
+            section_titles.add(i['section'])
         else:
             is_edit_type_found,edit_type = is_change_in_edit_type(i['type'],'',text)
             #check if edit_type in edit types dictionary
@@ -391,16 +384,11 @@ def get_diff_count(result):
 
     for c in result['change']:
         if c['prev']['type'] == c['curr']['type']:
-            if c['prev']['type'] == 'Text':
-                is_text_change_found = parse_change_text(c['prev']['type'], c['prev']['text'],c['curr']['text'])
-                if is_text_change_found:
-                    section_titles.add(c['curr']['section'])
-                    section_titles.add(c['prev']['section'])
-                    for k,v in is_text_change_found.items():
-                        if len(edit_types.get(k,{})) == 0:
-                            edit_types[k] = {}
-                        for v_key, v_val in v.items():
-                            edit_types[k][v_key] = edit_types[k].get(v_key, 0) + v_val
+            if c['prev']['type'] == 'Text' and c['prev']['text'] != c['curr']['text']:
+                prev_text.append(c['prev']['text'])
+                curr_text.append(c['curr']['text'])
+                section_titles.add(c['curr']['section'])
+                section_titles.add(c['prev']['section'])
             else:
                 is_edit_type_found,edit_type = is_change_in_edit_type(c['prev']['type'],c['prev']['text'],c['curr']['text'])
                 #check if edit_type in edit types dictionary
@@ -413,7 +401,7 @@ def get_diff_count(result):
                         edit_types[edit_type] = {'change':1}
 
     for m in result['move']:
-        text = m['prev']['text']       
+        text = m['prev']['text']
         is_edit_type_found,edit_type = is_change_in_edit_type(m['prev']['type'],text,'')
         #check if edit_type in edit types dictionary
         if is_edit_type_found:
@@ -423,7 +411,18 @@ def get_diff_count(result):
                 edit_types[edit_type]['move'] = edit_types[edit_type].get('move', 0) + 1
             else:
                 edit_types[edit_type] = {'move':1}
+
+    # join together all the changed section text and process
+    if prev_text or curr_text:
+        is_text_change_found = parse_change_text('Text', ''.join(prev_text), ''.join(curr_text))
+        if is_text_change_found:
+            for text_subcat,text_et in is_text_change_found.items():
+                edit_types[text_subcat] = {}
+                for et, et_count in text_et.items():
+                    edit_types[text_subcat][et] = edit_types[text_subcat].get(et, 0) + et_count
     
     if section_titles:
-        edit_types['Section'] = {'change':len(section_titles)}
+        if 'Section' not in edit_types:
+            edit_types['Section'] = {}
+        edit_types['Section']['change'] = len(section_titles)
     return edit_types
