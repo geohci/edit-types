@@ -331,5 +331,5 @@ def test_moved_section():
 def test_insert_cjk_punctuations():
     cjk_curr_wikitext = cjk_prev_wikitext.replace('。','、',1)
     expected_changes = {'Section':{'change':1}, 'Punctuation':{'change':1},'Sentence':{'change':1},'Paragraph':{'change':1}}
-    diff = EditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='en').get_diff()
+    diff = EditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
     assert expected_changes == diff
