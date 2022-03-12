@@ -1,14 +1,17 @@
 import re
 import string
 from collections import Counter
+from mwedittypes.constants import *
+
 #Universal regex for punctuations
 
 class Tokenizer:
 
-    def __init__(self, english_unicode, non_english_unicode):
+    def __init__(self, english_unicode, non_english_unicode, lang='en'):
         self.english_punc_regex = r'[{0}]'.format(re.escape(string.punctuation))
         self.english_unicode = english_unicode
         self.non_english_unicode =  non_english_unicode
+        self.lang = lang
 
     def get_punctuations(self, text):
         #get ellipsis
@@ -35,7 +38,18 @@ class Tokenizer:
 
     def get_words(self, text):
         #This extracts words inclusive of those with hyphens and apostrophes
-        word_list = re.findall(r"[\w'-]+",text)
+        if self.lang in NON_WHITESPACE_LANGUAGES:
+            word_list = re.findall(r"[\w]", text)
+
+        else:
+            #Get words with hyphens and apostrophe
+            #\b at the start and end of the word ensures there is a word boundary before a character followed by a hyphen or apostrophe
+            hyphenated_apos_words = re.findall(r"\b\w*[-']\w*\b", text)
+
+            #Remove hyphenated words
+            text = re.sub(r"\b\w*[-']\w*\b",'',text)
+            word_list = re.findall(r"[\w]+",text) + hyphenated_apos_words
+            #hyphens are okay as long as they are preceded by word characters
         return word_list
 
     def get_sentences(self, text):
@@ -45,8 +59,9 @@ class Tokenizer:
         # (?<!\.)\.(?!(?<=\d.)\d)(?!\.) - avoids matching dots between two digits but takes into account ellipsis and fullstops 
         #Minimum sentence size is three words. So a sentence needs to have atleast 3 words in it
         min_sentence_size = 2
+        #Add non-english sentence breaks
         sentences = re.split(r'[!?]+|(?<!\.)\.(?!(?<=\d.)\d)(?!\.)', text)
-        sentences = [ sentence.strip() for sentence in sentences if len(re.findall(r'\w+',sentence)) >= min_sentence_size]
+        sentences = [ sentence.strip() for sentence in sentences if len(self.get_words(sentence)) >= min_sentence_size]
         return sentences
 
     def get_paragraphs(self, text):
@@ -57,9 +72,14 @@ class Tokenizer:
         return []
 
     def tokenize_and_count(self, text):
+        if self.lang in NON_WHITESPACE_LANGUAGES:
+            word_key = 'Character'
+        else:
+            word_key = 'Word'
+
         return {'Whitespace':len(self.get_whitespace(text)),
                 'Punctuation':len(self.get_punctuations(text)),
-                'Word': len(self.get_words(text)),
+                word_key: len(self.get_words(text)),
                 'Sentence':len(self.get_sentences(text)),
                 'Paragraph': len(self.get_paragraphs(text))
                 }
@@ -77,10 +97,14 @@ class Tokenizer:
         sentences_occurence = Counter(sentences)
         paragraphs_occurence = Counter(paragraphs)
 
+        if self.lang in NON_WHITESPACE_LANGUAGES:
+            word_key = 'Character'
+        else:
+            word_key = 'Word'
         return {
             'Whitespace':dict(whitespace_occurence),
             'Punctuation':dict(punctuation_occurence),
-            'Word':dict(words_occurence),
+            word_key:dict(words_occurence),
             'Sentence':dict(sentences_occurence),
             'Paragraph':dict(paragraphs_occurence)
         }

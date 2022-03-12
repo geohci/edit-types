@@ -314,20 +314,22 @@ def parse_change_text(node_type, prev_wikitext='',curr_wikitext=''):
                     result[text_category] = dict(result.get(text_category,{}), **{item[0]:diff})
 
             #Get the maximum value between the sum of positives and sum of negatives
-                if len(result.get(text_category,{})) > 0:
+                if len(result.get(text_category,{})) > 0: 
                     removals = sum(abs(item) for item in result[text_category].values() if item < 0)
                     additions = sum(abs(item) for item in result[text_category].values() if item > 0)
                     change = min(removals, additions)
+                    result[text_category] = {}
+                    removals -= change
+                    additions -= change
+
+                    if removals > 0:
+                        result[text_category]['remove'] = removals
+                    
+                    if additions > 0:
+                        result[text_category]['insert'] = additions
+
                     if change > 0:
-                        change_diff = removals - additions
-                        if change_diff > 0:
-                            result[text_category] = {'remove':abs(change_diff),'change':change}
-                        elif change_diff == 0:
-                            result[text_category] = {'change':change}
-                        else:
-                            result[text_category] = {'insert':abs(change_diff),'change':change}
-                    else:
-                        result[text_category] = {edittype:max(removals, additions)}
+                        result[text_category]['change'] = change
             return result
 
         return None
