@@ -49,7 +49,6 @@ class Tokenizer:
             #Remove hyphenated words
             text = re.sub(r"\b\w*[-']\w*\b",'',text)
             word_list = re.findall(r"[\w]+",text) + hyphenated_apos_words
-            #hyphens are okay as long as they are preceded by word characters
         return word_list
 
     def get_sentences(self, text):
