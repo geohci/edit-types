@@ -280,6 +280,14 @@ def test_text_change():
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
+def test_hyphen_words():
+    curr_wikitext = prev_wikitext.replace('Aigen was born in Olomouc on 8 October 1685, the son of a goldsmith.',
+                                          'Aigen - Abe was born in Olomouc on 9 October 1685, the daughter of a goldsmith.',
+                                          1)
+
+    expected_changes = {'Paragraph':{'change':1}, 'Sentence':{'change':1}, 'Word':{'insert':1, 'change':2},'Punctuation':{'insert':1}, 'Section':{'change':1}, 'Whitespace':{'insert':2}}
+    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert expected_changes == diff
 
 def test_unbracketed_media():
     curr_wikitext = prev_wikitext.replace('===Works===\n',
@@ -334,11 +342,9 @@ def test_insert_cjk_punctuations():
     diff = EditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
     assert expected_changes == diff
 
-def test_hyphen_words():
-    curr_wikitext = prev_wikitext.replace('Aigen was born in Olomouc on 8 October 1685, the son of a goldsmith.',
-                                          'Aigen - Abe was born in Olomouc on 9 October 1685, the daughter of a goldsmith.',
-                                          1)
 
-    expected_changes = {'Paragraph':{'change':1}, 'Sentence':{'change':1}, 'Word':{'insert':1, 'change':2},'Punctuation':{'insert':1}, 'Section':{'change':1}, 'Whitespace':{'insert':2}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+# def test_remove_cjk_punctuations():
+#     cjk_curr_wikitext = cjk_prev_wikitext.replace('、','',1)
+#     expected_changes = {'Section':{'change':1}, 'Punctuation':{'remove':1},'Sentence':{'change':1},'Paragraph':{'change':1}}
+#     diff = EditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
+#     assert expected_changes == diff

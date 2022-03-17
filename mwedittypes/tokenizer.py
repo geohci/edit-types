@@ -43,12 +43,11 @@ class Tokenizer:
 
         else:
             #Get words with hyphens and apostrophe
-            #\b at the start and end of the word ensures there is a word boundary before a character followed by a hyphen or apostrophe
-            hyphenated_apos_words = re.findall(r"\b\w*[-']\w*\b", text)
-
-            #Remove hyphenated words
-            text = re.sub(r"\b\w*[-']\w*\b",'',text)
-            word_list = re.findall(r"[\w]+",text) + hyphenated_apos_words
+            #Satisfies the condition:
+            # \w+ - matches 1 or more characters
+            #[-']{0,1} matches 0 to 1 hyphens/apostrophe
+            # \w* matches 0 or more characters
+            word_list = re.findall(r"\b\w+[-']{0,1}\w*\b",text) #+ hyphenated_apos_words
         return word_list
 
     def get_sentences(self, text):
