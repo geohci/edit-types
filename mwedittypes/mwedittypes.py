@@ -14,5 +14,5 @@ class EditTypes:
 
     def get_diff(self):
         self.tree_diff = get_diff(self.prev_wikitext, self.curr_wikitext, lang=self.lang, timeout=self.timeout)
-        self.actions = get_diff_count(self.tree_diff)
+        self.actions = get_diff_count(self.tree_diff, lang=self.lang)
         return self.actions

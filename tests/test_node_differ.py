@@ -264,7 +264,7 @@ def test_change_text_count_english_punctuations():
     curr_text = "Wait for it... awesome! More things to come. Why me?"
     prev_text = "Waits for it... awesome!! More things to come. Why me?"
     expected_changes = {'Sentence':{'change':1},'Word':{'change':1},
-                        "Punctuation":{'change':1},
+                        "Punctuation":{'remove':1},
                         'Paragraph':{'change':1}
                         }
     get_text_structure = parse_change_text('Text', prev_text,curr_text)
@@ -276,10 +276,18 @@ def test_text_change():
     curr_wikitext = prev_wikitext.replace('Aigen was born in Olomouc on 8 October 1685, the son of a goldsmith.',
                                           'Aigen-Abe was born in Olomouc on 9 October 1685, the daughter of a goldsmith.',
                                           1)
-    expected_changes = {'Paragraph':{'change':1}, 'Sentence':{'change':1}, 'Word':{'change':3},'Punctuation':{'change':1}, 'Section':{'change':1}}
+    expected_changes = {'Paragraph':{'change':1}, 'Sentence':{'change':1}, 'Word':{'change':3},'Punctuation':{'insert':1}, 'Section':{'change':1}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
+def test_hyphen_words():
+    curr_wikitext = prev_wikitext.replace('Aigen was born in Olomouc on 8 October 1685, the son of a goldsmith.',
+                                          'Aigen - Abe was born in Olomouc on 9 October 1685, the daughter of a goldsmith.',
+                                          1)
+
+    expected_changes = {'Paragraph':{'change':1}, 'Sentence':{'change':1}, 'Word':{'insert':1, 'change':2},'Punctuation':{'insert':1}, 'Section':{'change':1}, 'Whitespace':{'insert':2}}
+    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert expected_changes == diff
 
 def test_unbracketed_media():
     curr_wikitext = prev_wikitext.replace('===Works===\n',
@@ -328,8 +336,20 @@ def test_moved_section():
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
-def test_insert_cjk_punctuations():
+def test_change_cjk_punctuations():
     cjk_curr_wikitext = cjk_prev_wikitext.replace('。','、',1)
     expected_changes = {'Section':{'change':1}, 'Punctuation':{'change':1},'Sentence':{'change':1},'Paragraph':{'change':1}}
     diff = EditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
     assert expected_changes == diff
+
+def test_change_cjk_character():
+    cjk_curr_wikitext = cjk_prev_wikitext.replace('番組は','年度',1)
+    expected_changes = {'Section':{'change':1}, 'Character':{'change':2,'remove':1},'Sentence':{'change':1},'Paragraph':{'change':1}}
+    diff = EditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
+    assert expected_changes == diff
+
+# def test_remove_cjk_punctuations():
+#     cjk_curr_wikitext = cjk_prev_wikitext.replace('。','',1)
+#     expected_changes = {'Section':{'change':1}, 'Punctuation':{'remove':1},'Sentence':{'change':1},'Paragraph':{'change':1}}
+#     diff = EditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
+#     assert expected_changes == diff

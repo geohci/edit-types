@@ -4,9 +4,6 @@ import mwparserfromhell as mw
 from mwedittypes.tokenizer import *
 from mwedittypes.constants import *
 
-# Initialize tokenizer class
-TOKENIZER = Tokenizer(ENGLISH_UNICODE, NON_ENGLISH_UNICODE)
-
 def is_change_in_edit_type(node_type,prev_wikitext='',curr_wikitext=''):
     """ Checks if a change occurs in wikitexts
 
@@ -290,7 +287,10 @@ def is_change_in_edit_type(node_type,prev_wikitext='',curr_wikitext=''):
     return False, None
 
 
-def parse_change_text(node_type, prev_wikitext='',curr_wikitext=''):
+def parse_change_text(node_type, prev_wikitext='',curr_wikitext='', lang='en'):
+    # Initialize tokenizer class
+    tokenizer = Tokenizer(ENGLISH_UNICODE, NON_ENGLISH_UNICODE, lang=lang)
+
     if node_type == 'Text':
         if prev_wikitext == '' and curr_wikitext != '':
             edittype = 'insert'
@@ -303,8 +303,8 @@ def parse_change_text(node_type, prev_wikitext='',curr_wikitext=''):
 
         
         if edittype:
-            prev_tokenizer = TOKENIZER.tokenize_and_get_occurence(prev_wikitext)
-            curr_tokenizer = TOKENIZER.tokenize_and_get_occurence(curr_wikitext)
+            prev_tokenizer = tokenizer.tokenize_and_get_occurence(prev_wikitext)
+            curr_tokenizer = tokenizer.tokenize_and_get_occurence(curr_wikitext)
 
             result = {}
             for text_category in curr_tokenizer.keys():
@@ -314,25 +314,27 @@ def parse_change_text(node_type, prev_wikitext='',curr_wikitext=''):
                     result[text_category] = dict(result.get(text_category,{}), **{item[0]:diff})
 
             #Get the maximum value between the sum of positives and sum of negatives
-                if len(result.get(text_category,{})) > 0:
+                if len(result.get(text_category,{})) > 0: 
                     removals = sum(abs(item) for item in result[text_category].values() if item < 0)
                     additions = sum(abs(item) for item in result[text_category].values() if item > 0)
                     change = min(removals, additions)
+                    result[text_category] = {}
+                    removals -= change
+                    additions -= change
+
+                    if removals > 0:
+                        result[text_category]['remove'] = removals
+                    
+                    if additions > 0:
+                        result[text_category]['insert'] = additions
+
                     if change > 0:
-                        change_diff = removals - additions
-                        if change_diff > 0:
-                            result[text_category] = {'remove':abs(change_diff),'change':change}
-                        elif change_diff == 0:
-                            result[text_category] = {'change':change}
-                        else:
-                            result[text_category] = {'insert':abs(change_diff),'change':change}
-                    else:
-                        result[text_category] = {edittype:max(removals, additions)}
+                        result[text_category]['change'] = change
             return result
 
         return None
 
-def get_diff_count(result):
+def get_diff_count(result, lang='en'):
     """ Gets the edit type count of a diff
 
     Parameters
@@ -414,7 +416,7 @@ def get_diff_count(result):
 
     # join together all the changed section text and process
     if prev_text or curr_text:
-        is_text_change_found = parse_change_text('Text', ''.join(prev_text), ''.join(curr_text))
+        is_text_change_found = parse_change_text('Text', ''.join(prev_text), ''.join(curr_text), lang=lang)
         if is_text_change_found:
             for text_subcat,text_et in is_text_change_found.items():
                 edit_types[text_subcat] = {}
