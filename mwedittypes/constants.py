@@ -10,6 +10,8 @@ TABLE_ELEMENTS_TAGS = ('th', 'tr', 'td')
 LIST_TAGS = ('li', 'dt', 'dd', 'ul', 'ol', 'dl')
 
 NON_WHITESPACE_LANGUAGES = ('ja','vi','zh','th','my')
+NON_ENGLISH_PUNCTUATIONS = '。？！'
+SENTENCE_BREAKS_REGEX = r'[!?{0}]+|(?<!\.)\.(?!(?<=\d.)\d)(?!\.)'.format(NON_ENGLISH_PUNCTUATIONS)
 
 NON_ENGLISH_UNICODE = '''[\u0609\u060a\u060c\u060d\u061b\u061e\u061f\u066a\u066b\u066c
 \u070a\u070b\u070c\u070d\u07f7\u07f8\u07f9\u0830\u0831\u0832\u0833\u0834\u0835
