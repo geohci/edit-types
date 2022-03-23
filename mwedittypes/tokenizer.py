@@ -58,7 +58,7 @@ class Tokenizer:
         #Minimum sentence size is three words. So a sentence needs to have atleast 3 words in it
         min_sentence_size = 2
         #Add non-english sentence breaks
-        sentences = re.split(r'[!?]+|(?<!\.)\.(?!(?<=\d.)\d)(?!\.)', text)
+        sentences = re.split(r'[!?。]+|(?<!\.)\.(?!(?<=\d.)\d)(?!\.)', text)
         sentences = [ sentence.strip() for sentence in sentences if len(self.get_words(sentence)) >= min_sentence_size]
         return sentences
 
