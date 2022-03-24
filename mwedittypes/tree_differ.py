@@ -8,7 +8,7 @@ from mwedittypes.constants import *
 
 
 # equivalent of main function
-def get_diff(prev_wikitext, curr_wikitext, lang='en', timeout=2):
+def get_diff(prev_wikitext, curr_wikitext, lang='en', timeout=2, debug=False):
     """Run through full process of getting tree diff between two wikitext revisions."""
     # To provide proper structure, need all content to be nested under a section
     if not prev_wikitext.startswith('==') and not curr_wikitext.startswith('=='):
@@ -17,7 +17,7 @@ def get_diff(prev_wikitext, curr_wikitext, lang='en', timeout=2):
     prev_tree = WikitextTree(wikitext=prev_wikitext, lang=lang)
     curr_tree = WikitextTree(wikitext=curr_wikitext, lang=lang)
     d = Differ(prev_tree, curr_tree, timeout=timeout)
-    diff = d.get_corresponding_nodes()
+    diff = d.get_corresponding_nodes(debug=debug)
     result = diff.post_process(prev_tree.secname_to_text, curr_tree.secname_to_text, lang=lang)
     return result
 
@@ -208,12 +208,13 @@ class OrderedNode(NodeMixin):
                                       section=self.section, parent=parent_node)
                 parent_ranges.insert(0, (node_start, node_start + len(nn), nn_node))
 
-    def dump(self):
-        result = {'name': self.name,
-                  'type': self.ntype,
+    def dump(self, debug=False):
+        result = {'type': self.ntype,
                   'text': self.text,
-                  'offset': self.char_offset,
                   'section': self.section}
+        if debug:
+            result['name'] = self.name
+            result['offset'] = self.char_offset
         return result
 
 
@@ -493,7 +494,7 @@ class Differ:
                         cc.extend(self.transactions[i][j])
                         transactions[i][j] = cc
 
-    def get_corresponding_nodes(self):
+    def get_corresponding_nodes(self, debug=False):
         """Explain transactions.
 
         Skip 'Section' operations as they aren't real nodes and
@@ -521,7 +522,8 @@ class Differ:
             diff = {'remove': remove, 'insert': insert, 'change': change}
             self.detect_moves(diff)
             return Diff(nodes_removed=diff['remove'], nodes_inserted=diff['insert'],
-                        nodes_changed=diff['change'], nodes_moved=diff['move'])
+                        nodes_changed=diff['change'], nodes_moved=diff['move'],
+                        debug=debug)
         else:
             return Diff(nodes_removed=[], nodes_inserted=[],
                         nodes_changed=[], nodes_moved=[])
@@ -594,14 +596,15 @@ class Diff:
     Diff result with helper functions for post-processing / cleaning up the result
     """
 
-    def __init__(self, nodes_removed, nodes_inserted, nodes_changed, nodes_moved):
-        self.remove = [n.dump() for n in nodes_removed]
-        self.insert = [n.dump() for n in nodes_inserted]
-        self.change = [{'prev': pn.dump(), 'curr': cn.dump()} for pn, cn in nodes_changed]
-        self.move = [{'prev': pn.dump(), 'curr': cn.dump()} for pn, cn in nodes_moved]
+    def __init__(self, nodes_removed, nodes_inserted, nodes_changed, nodes_moved, debug=False):
+        self.remove = [n.dump(debug) for n in nodes_removed]
+        self.insert = [n.dump(debug) for n in nodes_inserted]
+        self.change = [{'prev': pn.dump(debug), 'curr': cn.dump(debug)} for pn, cn in nodes_changed]
+        self.move = [{'prev': pn.dump(debug), 'curr': cn.dump(debug)} for pn, cn in nodes_moved]
         self.sections_p_to_c = {}
         self.sections_c_to_p = {}
         self.processed = False
+        self.debug = debug
 
     def post_process(self, sections_prev, sections_curr, lang):
         if not self.processed:
@@ -634,8 +637,10 @@ class Diff:
             cn['section'] = csec_id
             sc[csec_id] = sections_curr[csec_name]
 
-        self.result = {'remove': self.remove, 'insert': self.insert, 'change': self.change, 'move': self.move,
-                       'sections-prev': sp, 'sections-curr': sc}
+        self.result = {'remove': self.remove, 'insert': self.insert, 'change': self.change, 'move': self.move}
+        if self.debug:
+            self.result['sections-prev'] = sp
+            self.result['sections-curr'] = sc
 
     def _section_mapping(self, sections_prev, sections_curr):
         """Build mapping of sections between previous and current versions of article."""
