@@ -9,7 +9,10 @@ TEXT_FORMATTING_TAGS = ('b', 'i', 's', 'u', 'del', 'ins','hr', 'br','pre', 'nowi
 TABLE_ELEMENTS_TAGS = ('th', 'tr', 'td')
 LIST_TAGS = ('li', 'dt', 'dd', 'ul', 'ol', 'dl')
 
-NON_WHITESPACE_LANGUAGES = ('ja','vi','zh','th','my')
+# See: https://www.mediawiki.org/wiki/User:TJones_(WMF)/Notes/Spaceless_Writing_Systems_and_Wiki-Projects
+NON_WHITESPACE_LANGUAGES = ('bo', 'dz', 'gan', 'ja', 'km', 'lo', 'my', 'th', 'wuu', 'zh', 'zh-classical', 'zh-yue',  # space-less
+                            'bug', 'cdo', 'cr', 'hak',  # mixed space/spaceless. could also add: 'jv', 'zh-min-nan'
+                            'vi')  # spaces but between syllables and not words
 # CJK period/question/exclamation; Bengali full-stop
 NON_ENGLISH_PUNCTUATIONS = '。？！।॥'
 SENTENCE_BREAKS_REGEX = r'[!?{0}]+|(?<!\.)\.(?!(?<=\d.)\d)(?!\.)'.format(NON_ENGLISH_PUNCTUATIONS)
