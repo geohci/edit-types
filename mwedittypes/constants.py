@@ -15,6 +15,10 @@ NON_WHITESPACE_LANGUAGES = ('bo', 'dz', 'gan', 'ja', 'km', 'lo', 'my', 'th', 'wu
                             'vi')  # spaces but between syllables and not words
 # CJK period/question/exclamation; Bengali full-stop
 NON_ENGLISH_PUNCTUATIONS = '。？！।॥'
+
+#[!?] - 1 or more ! or ?
+#| - or 
+# (?<!\.)\.(?!(?<=\d.)\d)(?!\.) - avoids matching dots between two digits but takes into account ellipsis and fullstops        
 SENTENCE_BREAKS_REGEX = r'[!?{0}]+|(?<!\.)\.(?!(?<=\d.)\d)(?!\.)'.format(NON_ENGLISH_PUNCTUATIONS)
 
 NON_ENGLISH_UNICODE = '''[\u0609\u060a\u060c\u060d\u061b\u061e\u061f\u066a\u066b\u066c
