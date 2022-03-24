@@ -311,9 +311,25 @@ class Differ:
     def prune_trees(self, t1, t2, expand_nodes=False):
         """Quick heuristic preprocessing to reduce tree differ time by removing matching sections."""
         self.prune_sections(t1, t2)
-        if expand_nodes:
+        # more than 500 nodes altogether even after pruning and before unnesting -- just diff sections
+        if (len([1 for n in PostOrderIter(t1.root)]) + len([1 for n in PostOrderIter(t2.root)])) > 500:
+            self.prune_to_sections(t1, t2)
+        # seems like manageable number of total nodes -- unnest fully before diffing
+        elif expand_nodes and (sum([len(mw.parse(n.text).filter()) for n in PostOrderIter(t1.root)]) +
+                             sum([len(mw.parse(n.text).filter()) for n in PostOrderIter(t2.root)])) < 1000:
             t1.expand_nested()
             t2.expand_nested()
+
+    def prune_to_sections(self, t1, t2):
+        """Remove all non-section nodes."""
+        t1_sections = [n for n in PostOrderIter(t1.root) if n.ntype == "Section"]
+        t2_sections = [n for n in PostOrderIter(t2.root) if n.ntype == "Section"]
+        for n in PostOrderIter(t1.root):
+            if n.ntype == 'Section':
+                n.children = []
+        for n in PostOrderIter(t2.root):
+            if n.ntype == 'Section':
+                n.children = []
 
     def prune_sections(self, t1, t2):
         """Prune nodes from any sections that align across revisions"""
@@ -357,10 +373,11 @@ class Differ:
                     self.transactions = None
                     return
 
-        for i in range(0, len(self.t1)):
-            for j in range(0, len(self.t2)):
-                if self.transactions.get(i, {}).get(j) and len(self.transactions[i][j]) > 0:
-                    self.transactions[i][j] = tuple([self.idx_to_transaction[idx] for idx in self.transactions[i][j]])
+        if self.transactions:
+            for i in range(0, len(self.t1)):
+                for j in range(0, len(self.t2)):
+                    if self.transactions.get(i, {}).get(j) and len(self.transactions[i][j]) > 0:
+                        self.transactions[i][j] = tuple([self.idx_to_transaction[idx] for idx in self.transactions[i][j]])
 
     def get_node_distance(self, n1, n2):
         """
@@ -482,28 +499,32 @@ class Differ:
         Skip 'Section' operations as they aren't real nodes and
         any changes to them will be captured via Headings etc.
         """
-        transactions = self.transactions[len(self.t1) - 1][len(self.t2) - 1]
-        remove = []
-        insert = []
-        change = []
-        for i in range(0, len(transactions)):
-            if transactions[i][0] is None:
-                ins_node = self.t2[transactions[i][1]]
-                if ins_node.ntype != 'Section' or not ins_node.children:
-                    insert.append(ins_node)
-            elif transactions[i][1] is None:
-                rem_node = self.t1[transactions[i][0]]
-                if rem_node.ntype != 'Section' or not rem_node.children:
-                    remove.append(rem_node)
-            else:
-                prev_node = self.t1[transactions[i][0]]
-                curr_node = self.t2[transactions[i][1]]
-                if prev_node.ntype != 'Section' or not prev_node.children:
-                    change.append((prev_node, curr_node))
-        diff = {'remove': remove, 'insert': insert, 'change': change}
-        self.detect_moves(diff)
-        return Diff(nodes_removed=diff['remove'], nodes_inserted=diff['insert'],
-                    nodes_changed=diff['change'], nodes_moved=diff['move'])
+        if self.transactions:
+            transactions = self.transactions[len(self.t1) - 1][len(self.t2) - 1]
+            remove = []
+            insert = []
+            change = []
+            for i in range(0, len(transactions)):
+                if transactions[i][0] is None:
+                    ins_node = self.t2[transactions[i][1]]
+                    if ins_node.ntype != 'Section' or not ins_node.children:
+                        insert.append(ins_node)
+                elif transactions[i][1] is None:
+                    rem_node = self.t1[transactions[i][0]]
+                    if rem_node.ntype != 'Section' or not rem_node.children:
+                        remove.append(rem_node)
+                else:
+                    prev_node = self.t1[transactions[i][0]]
+                    curr_node = self.t2[transactions[i][1]]
+                    if prev_node.ntype != 'Section' or not prev_node.children:
+                        change.append((prev_node, curr_node))
+            diff = {'remove': remove, 'insert': insert, 'change': change}
+            self.detect_moves(diff)
+            return Diff(nodes_removed=diff['remove'], nodes_inserted=diff['insert'],
+                        nodes_changed=diff['change'], nodes_moved=diff['move'])
+        else:
+            return Diff(nodes_removed=[], nodes_inserted=[],
+                        nodes_changed=[], nodes_moved=[])
 
     def detect_moves(self, diff):
         """Detect when nodes were moved (as opposed to removed/inserted/changed) and update diff."""

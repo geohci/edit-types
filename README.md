@@ -63,6 +63,16 @@ The tests for node/tree differs are contained within the `tests` directory.
 They can be run via [pytest](https://docs.pytest.org).
 We are not even close to full coverage yet given the numerous node types (template, text, etc.) and four actions (insert/remove/change/move) and varying languages for e.g., Text or Category/Media nodes, but we are working on expanding coverage.
 
+### Releases
+When a release is ready, there are a few simple steps to take:
+* Update the version number in `setup.py` and `mwedittypes/__init__.py` per [semantic versioning](https://semver.org/) and push to Github.
+* Create a tag with the same version number (easiest to do this as part of the next step on Github).
+* Make a Github release with the new version and summary of changes. This will trigger the publish to PyPi action.
+
+Troubleshooting:
+* If something fails, you can always rollback the release (Github UI) and delete the associated tag (on your local repository: `git tag -d [tag]; git push origin :[tag]`) and retry.
+* This relies on a PyPi secret so you must have correct privileges on the Github repo.
+
 ## Documentation
 * For more background, see: https://meta.wikimedia.org/wiki/Research:Wikipedia_Edit_Types
 * To test out the code, see: https://wiki-topic.toolforge.org/diff-tagging?lang=en
