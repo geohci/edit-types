@@ -10,7 +10,8 @@ TABLE_ELEMENTS_TAGS = ('th', 'tr', 'td')
 LIST_TAGS = ('li', 'dt', 'dd', 'ul', 'ol', 'dl')
 
 NON_WHITESPACE_LANGUAGES = ('ja','vi','zh','th','my')
-NON_ENGLISH_PUNCTUATIONS = '。？！'
+# CJK period/question/exclamation; Bengali full-stop
+NON_ENGLISH_PUNCTUATIONS = '。？！।॥'
 SENTENCE_BREAKS_REGEX = r'[!?{0}]+|(?<!\.)\.(?!(?<=\d.)\d)(?!\.)'.format(NON_ENGLISH_PUNCTUATIONS)
 
 NON_ENGLISH_UNICODE = '''[\u0609\u060a\u060c\u060d\u061b\u061e\u061f\u066a\u066b\u066c
@@ -31,7 +32,8 @@ NON_ENGLISH_UNICODE = '''[\u0609\u060a\u060c\u060d\u061b\u061e\u061f\u066a\u066b
 \u2032\u2033\u2034\u2035\u2036\u2037\u2038\u203b\u203c\u203d\u203e
 \u2041\u2042\u2043\u2047\u2048\u2049\u204a\u204b\u204c\u204d\u204e
 \u204f\u2050\u2051\u2053\u2055\u2056\u2057\u2058\u2059\u205a\u205b
-\u205c\u205d\u205e\u2cf9\u2cfa\u2cfb\u2cfc\u2cfe\u2cff\u3000-\u303f\uff0c\uff01\uff1f\uff1b\uff1a\uff08\uff3b\u3010]'''.replace('\n','')
+\u205c\u205d\u205e\u2cf9\u2cfa\u2cfb\u2cfc\u2cfe\u2cff
+\u3000-\u303f\uff0c\uff01\uff1f\uff1b\uff1a\uff08\uff3b\u3010\u09E4\u09E5]'''.replace('\n','')
 
 ENGLISH_UNICODE = '[\u00b7\u00bf]'
 
