@@ -353,3 +353,21 @@ def test_remove_cjk_punctuations():
     expected_changes = {'Section':{'change':1}, 'Punctuation':{'remove':1},'Sentence':{'change':1,'remove':1},'Paragraph':{'change':1}}
     diff = EditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
     assert expected_changes == diff
+
+def test_large_nested_change():
+    curr_wikitext = prev_wikitext.replace("<ref>{{Bryan (3rd edition)",
+                                          "<ref>{{Bryan (3rd edition)" + '[[link]]'*1000,
+                                          1)
+    # shouldn't be expanded so only change to reference detected
+    expected_changes = {'Reference': {'change': 1}, 'Section': {'change': 1}}
+    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert expected_changes == diff
+
+def test_large_unnested_change():
+    curr_wikitext = prev_wikitext.replace("Aigen was born",
+                                          "Aigen was born" + '[[link]]'*1000,
+                                          1)
+    # too many nodes -- should just compare section hashes to find edits
+    expected_changes = {'Section': {'change': 1}}
+    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert expected_changes == diff
