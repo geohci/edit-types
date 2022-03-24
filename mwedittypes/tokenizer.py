@@ -52,9 +52,6 @@ class Tokenizer:
 
     def get_sentences(self, text):
         #This regex accounts for ellipsis and splits accordingly
-        #[!?] - 1 or more ! or ?
-        #| - or 
-        # (?<!\.)\.(?!(?<=\d.)\d)(?!\.) - avoids matching dots between two digits but takes into account ellipsis and fullstops 
         #Minimum sentence size is three words. So a sentence needs to have atleast 3 words in it
         min_sentence_size = 2
         #Add non-english sentence breaks
