@@ -313,7 +313,7 @@ class Differ:
         """Quick heuristic preprocessing to reduce tree differ time by removing matching sections."""
         self.prune_sections(t1, t2)
         # more than 500 nodes altogether even after pruning and before unnesting -- just diff sections
-        if (len([1 for n in PostOrderIter(t1.root)]) + len([1 for n in PostOrderIter(t2.root)])) > 500:
+        if (sum(1 for n in PostOrderIter(t1.root)) + sum(1 for n in PostOrderIter(t2.root))) > 500:
             self.prune_to_sections(t1, t2)
         # seems like manageable number of total nodes -- unnest fully before diffing
         elif expand_nodes and (sum([len(mw.parse(n.text).filter()) for n in PostOrderIter(t1.root)]) +
@@ -323,8 +323,6 @@ class Differ:
 
     def prune_to_sections(self, t1, t2):
         """Remove all non-section nodes."""
-        t1_sections = [n for n in PostOrderIter(t1.root) if n.ntype == "Section"]
-        t2_sections = [n for n in PostOrderIter(t2.root) if n.ntype == "Section"]
         for n in PostOrderIter(t1.root):
             if n.ntype == 'Section':
                 n.children = []

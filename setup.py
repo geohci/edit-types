@@ -7,7 +7,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 with codecs.open(os.path.join(here, "README.md"), encoding="utf-8") as fh:
     long_description = "\n" + fh.read()
 
-VERSION = '1.0.1'
+VERSION = '1.0.2'
 DESCRIPTION = 'Edit diffs and type detection for Wikipedia'
 LONG_DESCRIPTION = 'A package that allows edit diffs and type detection for Wikipedia.'
 
