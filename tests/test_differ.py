@@ -214,7 +214,7 @@ def test_remove_cjk_punctuations():
     expected_changes = {'Section':{'change':1}, 'Punctuation':{'remove':1},'Sentence':{'change':1,'remove':1},'Paragraph':{'change':1}}
     diff = EditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
     assert expected_changes == diff
-    
+
 ##Size Test
 
 def test_large_nested_change():
