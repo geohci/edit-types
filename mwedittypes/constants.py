@@ -18,7 +18,13 @@ NON_ENGLISH_PUNCTUATIONS = '。？！।॥'
 
 #[!?] - 1 or more ! or ? or non english punctuation
 #| - or 
-# (?<![\.\d])\.(?![\.\d]) - The above avoids matching dots between two digits but takes into account ellipsis and fullstops        
+# (?<!\.) - next character must not precede a fullstop
+#\. - next character
+#(?<=\d.) - must be preceded by a digit containing a fullstop
+# (?!(?<=\d.)\d) -  next character must not be followed by matching dots between two digits
+#(?!\.) - next character must not be followed by fullstop
+
+#The above avoids matching dots between two digits but takes into account ellipsis and fullstops        
 SENTENCE_BREAKS_REGEX = r'[!?{0}]+|(?<!\.)\.(?!(?<=\d.)\d)(?!\.)'.format(NON_ENGLISH_PUNCTUATIONS)
 
 NON_ENGLISH_UNICODE = '''[\u0609\u060a\u060c\u060d\u061b\u061e\u061f\u066a\u066b\u066c
