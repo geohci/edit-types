@@ -256,12 +256,12 @@ def is_change_in_edit_type(node_type,prev_wikitext='',curr_wikitext=''):
             elif prev_wikitext != '' and curr_wikitext=='':
                 comments = prev_parsed_text.filter_comments(recursive=False)
                 if len(comments) > 0:
-                    return True, 'Comments'
+                    return True, 'Comment'
 
             elif prev_wikitext == '' and curr_wikitext != '':
                 comments = curr_parsed_text.filter_comments(recursive=False)
                 if len(comments) > 0:
-                    return True, 'Comments'
+                    return True, 'Comment'
 
         elif node_type == 'External Link':
             if prev_wikitext != '' and curr_wikitext != '':
