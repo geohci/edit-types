@@ -7,9 +7,9 @@ here = os.path.abspath(os.path.dirname(__file__))
 with codecs.open(os.path.join(here, "README.md"), encoding="utf-8") as fh:
     long_description = "\n" + fh.read()
 
-VERSION = '1.0.2'
-DESCRIPTION = 'Edit diffs and type detection for Wikipedia'
-LONG_DESCRIPTION = 'A package that allows edit diffs and type detection for Wikipedia.'
+VERSION = '1.0.0'
+DESCRIPTION = 'Edit diffs and type detection for Wikipedia (simple)'
+LONG_DESCRIPTION = 'A (simple) package that allows edit diffs and type detection for Wikipedia.'
 
 # Dev dependencies
 EXTRAS_REQUIRE = {
@@ -22,17 +22,17 @@ EXTRAS_REQUIRE["dev"] = (
 
 # Setting up
 setup(
-    name="mwedittypes",
+    name="mwsimpleedittypes",
     version=VERSION,
     author="geohci & Amamgbu (Isaac Johnson & Jesse Amamgbu)",
-    author_email="<amamgbujesse@yahoo.com>",
+    author_email="<isaac@wikimedia.org>",
     url="https://github.com/geohci/edit-types",
     license="MIT License",
     description=DESCRIPTION,
     long_description_content_type="text/markdown",
     long_description=long_description,
     packages=find_packages(),
-    install_requires=['mwparserfromhell', 'anytree'],
+    install_requires=['mwparserfromhell'],
     keywords=['python', 'wikipedia', 'edit types', 'edit diffs', 'wiki', 'edit detection'],
     classifiers=[
         "Development Status :: 4 - Beta",

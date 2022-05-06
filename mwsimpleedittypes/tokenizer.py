@@ -1,7 +1,7 @@
 import re
 import string
 from collections import Counter
-from mwedittypes.constants import *
+from mwsimpleedittypes.constants import *
 
 #Universal regex for punctuations
 

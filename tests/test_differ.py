@@ -218,11 +218,11 @@ def test_remove_cjk_punctuations():
 ##Size Test
 
 def test_large_nested_change():
-    curr_wikitext = prev_wikitext.replace("<ref>{{Bryan (3rd edition)",
-                                          "<ref>{{Bryan (3rd edition)" + '[[link]]'*1000,
+    curr_wikitext = prev_wikitext.replace("<ref>{{Bryan (3rd edition)|title=Aigen, Karl",
+                                          "<ref>{{Bryan (3rd edition)|title=Aigen, Karl" + '[[link]]'*1000,
                                           1)
-    # shouldn't be expanded so only change to reference detected
-    expected_changes = {'Reference': {'change': 1}, 'Section': {'change': 1}}
+    # full library can't unnest so outputs:  {'Reference': {'change': 1}, 'Section': {'change': 1}}
+    expected_changes = {'Reference': {'change': 1}, 'Section': {'change': 1}, 'Wikilink':{'insert':1000}, 'Template':{'change':1}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
@@ -230,8 +230,12 @@ def test_large_unnested_change():
     curr_wikitext = prev_wikitext.replace("Aigen was born",
                                           "Aigen was born" + '[[link]]'*1000,
                                           1)
-    # too many nodes -- should just compare section hashes to find edits
-    expected_changes = {'Section': {'change': 1}}
+    # in full library: {'Section': {'change': 1}} because too many nodes
+    expected_changes = {'Section': {'change': 1},
+                        'Wikilink':{'insert': 1000},
+                        'Paragraph': {'change': 1},
+                        'Sentence': {'change': 1},
+                        'Word': {'change': 1}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
@@ -303,7 +307,7 @@ def test_swap_templates():
     curr_wikitext = prev_wikitext.replace("{{commons category}}\n{{Authority control}}",
                                           "{{Authority control}}\n{{commons category}}",
                                           1)
-    expected_changes = {'Template':{'move':2}, 'Section':{'change':1}}
+    expected_changes = {'Section':{'change':1}}  # with full library: {'Template':{'move':2}, 'Section':{'change':1}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
@@ -332,7 +336,7 @@ def test_complicated_sections():
     curr_wikitext = curr_wikitext.replace("[[Category:Artists from Olomouc]]",
                                           "[[Category:Artists in Olomouc]]",
                                           1)
-    expected_changes = {'Heading':{'insert':1},'Category':{'change':1}, 'Section':{'change':3}}
+    expected_changes = {'Heading':{'insert':1},'Category':{'change':1}, 'Section':{'insert':1, 'change':2}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
@@ -341,7 +345,7 @@ def test_moved_section():
     curr_wikitext = prev_wikitext.replace("\n\n===Works===\nThe [[Österreichische Galerie Belvedere|Gallery of the Belvedere]] in Vienna has two works by him, both scenes with figures.<ref>{{Bryan (3rd edition)|title=Aigen, Karl |volume=1}}</ref>\n\n==References==\n{{reflist}}",
                                           "\n\n==References==\n{{reflist}}\n\n===Works===\nThe [[Österreichische Galerie Belvedere|Gallery of the Belvedere]] in Vienna has two works by him, both scenes with figures.<ref>{{Bryan (3rd edition)|title=Aigen, Karl |volume=1}}</ref>",
                                           1)
-    expected_changes = {'Section':{'move':1, 'change':2}}
+    expected_changes = {} # with full edit types:  {'Section':{'move':1, 'change':2}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
@@ -353,7 +357,7 @@ def test_remove_text_count_english_punctuations():
                         'Paragraph':{'remove':1}
                        }
     
-    get_text_structure = parse_change_text('Text',text,'')
+    get_text_structure = parse_change_text(text, '')
     
     assert expected_changes == get_text_structure
 
@@ -363,7 +367,7 @@ def test_insert_text_count_english_punctuations():
                         'Paragraph':{'insert':1}
                        }
     
-    get_text_structure = parse_change_text('Text','',text)
+    get_text_structure = parse_change_text('', text)
     
     assert expected_changes == get_text_structure
 
@@ -375,5 +379,5 @@ def test_change_text_count_english_punctuations():
                         "Punctuation":{'remove':1},
                         'Paragraph':{'change':1}
                         }
-    get_text_structure = parse_change_text('Text', prev_text,curr_text)
+    get_text_structure = parse_change_text(prev_text, curr_text)
     assert expected_changes == get_text_structure
