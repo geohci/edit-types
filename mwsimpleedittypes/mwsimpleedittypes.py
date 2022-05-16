@@ -2,12 +2,11 @@ from mwsimpleedittypes.differ import get_diff
 
 class EditTypes:
 
-    def __init__(self, prev_wikitext='', curr_wikitext='', lang='en', timeout=5, debug=False):
+    def __init__(self, prev_wikitext='', curr_wikitext='', lang='en', timeout=5):
         self.prev_wikitext = prev_wikitext
         self.curr_wikitext = curr_wikitext
         self.lang = lang
         self.timeout = timeout
-        self.debug = debug
         self.actions = None
 
     def get_diff(self):

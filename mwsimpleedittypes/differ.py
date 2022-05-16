@@ -342,9 +342,7 @@ def parse_change_text(prev_wikitext='', curr_wikitext='', lang='en'):
     result = {}
 
     prev_tokenizer = tokenizer.tokenize_and_get_occurence(prev_wikitext)
-    print('prev', prev_tokenizer)
     curr_tokenizer = tokenizer.tokenize_and_get_occurence(curr_wikitext)
-    print('curr', curr_tokenizer)
 
     for text_category in curr_tokenizer.keys():
         items_diff_list = list(
