@@ -13,8 +13,8 @@ def get_diff(prev_wikitext, curr_wikitext, lang='en', timeout=2):
     if not prev_wikitext.startswith('==') and not curr_wikitext.startswith('=='):
         prev_wikitext = '==Lede==\n' + prev_wikitext
         curr_wikitext = '==Lede==\n' + curr_wikitext
-    prev_tree = WikitextTree(wikitext=prev_wikitext, lang=lang)
-    curr_tree = WikitextTree(wikitext=curr_wikitext, lang=lang)
+    prev_tree = WikitextBag(wikitext=prev_wikitext, lang=lang)
+    curr_tree = WikitextBag(wikitext=curr_wikitext, lang=lang)
     d = Differ(prev_tree, curr_tree, timeout=timeout)
     result = d.count_actions()
     return result
@@ -120,10 +120,10 @@ class Node():
     Basic object for wrapping mwparserfromhell wikitext nodes
     """
 
-    def __init__(self, name, ntype='Text', text_hash=None, text='', char_offset=-1, section=None):
+    def __init__(self, name, ntype='Text', text_hash=None, text='', section=None):
         self.name = name  # For debugging purposes
-        self.ntype = ntype  # Different node types can be treated differently when computing equality
-        self.text = str(text)  # Text that can then be passed to a diffing library
+        self.ntype = ntype  # Type of node for result
+        self.text = str(text)  # Text that is needed if unnesting the node
         # Used for quickly computing equality for most nodes.
         # Generally this just a simple hash of self.text (wikitext associated with a node) but
         # the text hash for sections and paragraphs is based on all the content within the section/paragraph
@@ -134,7 +134,6 @@ class Node():
             self.text_hash = hash(self.text)
         else:
             self.text_hash = hash(str(text_hash))
-        self.char_offset = char_offset  # make it easy to find node in section text
         self.section = section  # section that the node is a part of -- useful for formatting final diff
 
     def unnest(self, lang='en'):
@@ -142,7 +141,7 @@ class Node():
 
         This approach starts with a single wikitext node -- e.g., a single Tag node with nested link nodes etc.:
         <ref>{{cite web|title=[[Gallery]]|url=http://digital.belvedere.at|publisher=Digitales Belvedere}}</ref>
-        and splits it into its component pieces to then identify what has changed between revisions.
+        and splits it into its component parts (ref, template, wikilink, externallink) to identify fine-grained changes.
         """
         nodes = []
         # Using string mixin methods such as wt.find(x) for subnodes in the for
@@ -160,11 +159,10 @@ class Node():
                 node_str = '<br>' + self.text[gallery_start+1:gallery_end]
                 wt = mw.parse(node_str)
             except Exception:  # fallback
+                node_str = self.text
                 wt = mw.parse(node_str)
         else:
             wt = mw.parse(node_str)
-        base_offset = self.char_offset
-        parent_ranges = [(0, len(node_str), self)]  # (start idx of node, end idx of node, node object)
         for idx, nn in enumerate(wt.ifilter(recursive=True)):
             if idx == 0:
                 continue  # skip root node -- already set
@@ -178,7 +176,6 @@ class Node():
                         nn_node = Node(f'Media: {m[:10]}...',
                                        ntype='Media',
                                        text=m,
-                                       char_offset=base_offset + node_str.find(str(m), parent_ranges[0][0]),
                                        section=self.section)
                         nodes.append(nn_node)
             # tables are very highly-structured and produce a ton of nodes (each cell and more)
@@ -188,21 +185,14 @@ class Node():
             elif ntype == 'Table Element':
                 pass
             else:
-                node_start = node_str.find(str(nn), parent_ranges[0][0])  # start looking from the start of the latest node
-                # identify direct parent of node
-                for parent in parent_ranges:
-                    if node_start < parent[1]:  # falls within parent range
-                        parent_node = parent[2]
-                        break
-                nn_node = Node(node_to_name(nn, lang=lang), ntype=ntype, text=nn,
-                               char_offset=base_offset + node_start, section=self.section)
+                nn_node = Node(node_to_name(nn, lang=lang), ntype=ntype, text=nn, section=self.section)
                 nodes.append(nn_node)
-                parent_ranges.insert(0, (node_start, node_start + len(nn), nn_node))
         return nodes
 
-class WikitextTree:
+
+class WikitextBag:
     """
-    Tree structure for wikitext based on mwparserfromhell
+    Structure for extracting and holding an unordered collection of wikitext nodes based on mwparserfromhell
     """
 
     def __init__(self, wikitext, lang="en"):
@@ -212,11 +202,10 @@ class WikitextTree:
         self.wikitext_to_bagofnodes(wikitext)
 
     def wikitext_to_bagofnodes(self, wikitext):
-        """Build tree of document nodes from Wikipedia article.
+        """Build bag of document nodes from Wikipedia article.
 
-        This approach builds a tree with an artificial 'root' node on the 1st level,
-        all of the article sections on the 2nd level (including an artificial Lede section),
-        and all of the text, link, template, etc. nodes nested under their respective sections.
+        Includes special Section nodes that will cover any changes made to that section.
+        Excludes text, which will be processed later (and is captured by the Section nodes).
         """
         wt = mw.parse(wikitext)
         for sidx, s in enumerate(wt.get_sections(flat=True)):
@@ -224,34 +213,31 @@ class WikitextTree:
                 sec_hash = sec_to_name(s, sidx)
                 sec_text = ''.join([str(n) for n in s.nodes])
                 self.secname_to_text[sec_hash] = sec_text
-                s_node = Node(sec_hash, ntype="Section", text=s.nodes[0], text_hash=sec_text, char_offset=0,
-                              section=sec_hash)
+                s_node = Node(sec_hash, ntype="Section", text=sec_text, section=sec_hash)
                 self.nodes[s_node.text_hash] = self.nodes.get(s_node.text_hash, []) + [s_node]
-                char_offset = 0
-                for n in s.nodes:
+                for n in s.nodes:  # this is just top-level of nodes so e.g., table but not all the table rows etc.
                     ntype = simple_node_class(n, self.lang)
                     if ntype != 'Text':
-                        n_node = Node(node_to_name(n, self.lang), ntype=ntype, text=n,
-                                      char_offset=char_offset, section=s_node.name)
+                        n_node = Node(node_to_name(n, self.lang), ntype=ntype, text=n, section=s_node.name)
                         self.nodes[n_node.text_hash] = self.nodes.get(n_node.text_hash, []) + [n_node]
-                    char_offset += len(str(n))
 
     def expand_nested(self):
         """Expand nested nodes in tree -- e.g., Ref tags with templates/links contained in them."""
         to_add = {}
         for n_hash in self.nodes:
             for n in self.nodes[n_hash]:
-                if n.ntype not in ('Article', 'Section', 'Heading', 'Text'):  # leaves tag, link, etc.
-                    for n in n.unnest(self.lang):
-                        to_add[n.text_hash] = to_add.get(n.text_hash, []) + [n]
+                if n.ntype not in ('Section', 'Heading', 'Text'):  # leaves tag, link, etc.
+                    for nn in n.unnest(self.lang):
+                        to_add[nn.text_hash] = to_add.get(nn.text_hash, []) + [nn]
 
         for n_hash in to_add:
             for n in to_add[n_hash]:
                 self.nodes[n_hash] = self.nodes.get(n_hash, []) + [n]
 
+
 class Differ:
     """
-    Find structural differences between two WikitextTrees
+    Find structural differences between two WikitextBags
     """
 
     def __init__(self, t1, t2, timeout=2, expand_nodes=True):
@@ -293,16 +279,12 @@ class Differ:
         # no need to loop through t2n because what's left in it doesn't have any matches
 
     def count_actions(self):
-        """Explain transactions.
-
-        Skip 'Section' operations as they aren't real nodes and
-        any changes to them will be captured via Headings etc.
-        """
+        """Explain differences."""
         edit_types = {}
         prev_text_sections = set()
         curr_text_sections = set()
 
-        # aggregate by node type to identify changes
+        # aggregate by node type to identify non-matching nodes
         prev_ntypes = {}
         for n_hash in self.t1.nodes:
             for n in self.t1.nodes[n_hash]:
@@ -341,6 +323,7 @@ class Differ:
         edit_types.update(text_changes)
 
         return edit_types
+
 
 def parse_change_text(prev_wikitext='', curr_wikitext='', lang='en'):
     # Initialize tokenizer class
