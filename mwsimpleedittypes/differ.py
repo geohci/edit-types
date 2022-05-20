@@ -145,6 +145,11 @@ class Node():
         and splits it into its component pieces to then identify what has changed between revisions.
         """
         nodes = []
+        # Using string mixin methods such as wt.find(x) for subnodes in the for
+        # loop below means doing str(wt) everytime, which is expensive because
+        # it recursively converts each node to str. Better to create a string using
+        # the node's text and use built-in string methods instead.
+        node_str = self.text
         if self.ntype == 'Gallery':
             # strip leading / trailing gallery tags so parser correctly parses everything in between
             # otherwise links, formatting, etc. is treated as text
@@ -152,13 +157,14 @@ class Node():
             gallery_end = self.text.rfind('<')
             try:
                 # the <br> is a hack; it'll be skipped in the ifilter loop; otherwise first image skipped
-                wt = mw.parse('<br>' + self.text[gallery_start+1:gallery_end])
+                node_str = '<br>' + self.text[gallery_start+1:gallery_end]
+                wt = mw.parse(node_str)
             except Exception:  # fallback
-                wt = mw.parse(self.text)
+                wt = mw.parse(node_str)
         else:
-            wt = mw.parse(self.text)
+            wt = mw.parse(node_str)
         base_offset = self.char_offset
-        parent_ranges = [(0, len(wt), self)]  # (start idx of node, end idx of node, node object)
+        parent_ranges = [(0, len(node_str), self)]  # (start idx of node, end idx of node, node object)
         for idx, nn in enumerate(wt.ifilter(recursive=True)):
             if idx == 0:
                 continue  # skip root node -- already set
@@ -172,7 +178,7 @@ class Node():
                         nn_node = Node(f'Media: {m[:10]}...',
                                        ntype='Media',
                                        text=m,
-                                       char_offset=base_offset + wt.find(str(m), parent_ranges[0][0]),
+                                       char_offset=base_offset + node_str.find(str(m), parent_ranges[0][0]),
                                        section=self.section)
                         nodes.append(nn_node)
             # tables are very highly-structured and produce a ton of nodes (each cell and more)
@@ -182,7 +188,7 @@ class Node():
             elif ntype == 'Table Element':
                 pass
             else:
-                node_start = wt.find(str(nn), parent_ranges[0][0])  # start looking from the start of the latest node
+                node_start = node_str.find(str(nn), parent_ranges[0][0])  # start looking from the start of the latest node
                 # identify direct parent of node
                 for parent in parent_ranges:
                     if node_start < parent[1]:  # falls within parent range
