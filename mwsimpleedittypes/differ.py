@@ -87,11 +87,10 @@ def extract_text(mwnode, lang='en'):
     elif ntype == 'Table':
         # don't collapse whitespace for tables because otherwise strip_code sometimes merges text across cells
         return mwnode.contents.strip_code(collapse=False)
-    # divs/galleries almost never have true text content and can be super messy so best ignored when building Text
-    elif ntype in ('Text Formatting', 'Reference'):
-        return mwnode.contents.strip_code()
-    # Heading, Template, Comment, Argument, Category, Media, URLs without display text
-    # Tags not listed here (div, gallery, etc.)
+    elif ntype == 'Text Formatting':
+        return ''.join(extract_text(mwn) for mwn in mwnode.contents.nodes)
+    # Heading, Template, Comment, Argument, Category, Media, References, URLs without display text
+    # Tags not listed here (div, gallery, etc.) that almost never have true text content and can be super messy
     # Table elements (they duplicate the text if included)
     else:
         return ''

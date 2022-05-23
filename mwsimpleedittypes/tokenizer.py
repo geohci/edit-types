@@ -42,12 +42,14 @@ class Tokenizer:
             word_list = re.findall(r"[\w]", text)
 
         else:
-            #Get words with hyphens and apostrophe
-            #Satisfies the condition:
-            # \w+ - matches 1 or more characters
-            #[-']{0,1} matches 0 to 1 hyphens/apostrophe
-            # \w* matches 0 or more characters
-            word_list = re.findall(r"\b\w+[-']{0,1}\w*\b",text) #+ hyphenated_apos_words
+            # Get words with optionally hyphens and apostrophe:
+            # \b - word breaks at start and end of word
+            # \w+ - matches 1 or more alphanumeric characters
+            # [-']? allows for hyphen/apostrophes within word
+            # ((?:...)+) capturing group (extract words) made up of 1+ non-capturing sequences of
+            # alphanumeric + hyphen/apostrophe. this allows for many-time-hyphenated words and the non-capturing wrapped
+            # in capturing is to only gather the entire word (otherwise capturing groups only capture the last instance)
+            word_list = re.findall(r"\b((?:\w+[-']?)+)\b", text)
         return word_list
 
     def get_sentences(self, text):
