@@ -182,10 +182,11 @@ def test_text_change():
 
 def test_hyphen_words():
     curr_wikitext = prev_wikitext.replace('Aigen was born in Olomouc on 8 October 1685, the son of a goldsmith.',
-                                          'Aigen - Abe was born in Olomouc on 9 October 1685, the daughter of a goldsmith.',
+                                          "Aigen-Abes' daughter was born in Olomouc on 9 October 1685, the daughter of a goldsmith.",
                                           1)
 
-    expected_changes = {'Paragraph':{'change':1}, 'Sentence':{'change':1}, 'Word':{'insert':1, 'change':2},'Punctuation':{'insert':1}, 'Section':{'change':1}, 'Whitespace':{'insert':2}}
+    expected_changes = {'Word': {'change': 3, 'insert': 1}, 'Punctuation': {'insert': 2}, 'Whitespace': {'insert': 1},
+                        'Sentence': {'change': 1}, 'Section': {'change': 1}, 'Paragraph': {'change': 1}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
@@ -194,6 +195,26 @@ def test_reorder_text():
                                           "He the a pupil of was Olomouc painter Maier Dominik.",
                                           1)
     expected_changes = {'Sentence':{'change':1},'Paragraph':{'change':1}, 'Section':{'change':1}}
+    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert expected_changes == diff
+
+# validate reference doesn't contribute text even though it's nested within text formatting
+def test_text_from_formatting():
+    curr_wikitext = prev_wikitext.replace("the son of a goldsmith",
+                                          "''the son of a goldsmith<ref>A reference: https://example.com/url-string</ref>''",
+                                          1)
+    expected_changes = {'Text Formatting':{'insert':1}, 'Reference':{'insert':1}, 'ExternalLink':{'insert':1},
+                        'Section':{'change':1}}
+    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert expected_changes == diff
+
+# validate reference doesn't contribute text even though it's nested within text formatting
+def test_text_from_link():
+    curr_wikitext = prev_wikitext.replace("[[Vienna]]",
+                                          "[[Vienna|same link different text]]",
+                                          1)
+    expected_changes = {'Wikilink':{'change':1}, 'Sentence':{'change':1}, 'Paragraph':{'change':1},
+                        'Section':{'change':1}, 'Word':{'insert': 3, 'change':1}, 'Whitespace':{'insert':3}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
@@ -231,7 +252,7 @@ def test_large_unnested_change():
                                           "Aigen was born" + '[[link]]'*1000,
                                           1)
     # too many nodes -- should just compare section hashes to find edits
-    expected_changes = {'Section': {'change': 1}}
+    expected_changes = {'Section': {'change': 1}, 'Paragraph':{'change':1}, 'Sentence':{'change':1}, 'Word':{'change':1}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
@@ -332,7 +353,7 @@ def test_complicated_sections():
     curr_wikitext = curr_wikitext.replace("[[Category:Artists from Olomouc]]",
                                           "[[Category:Artists in Olomouc]]",
                                           1)
-    expected_changes = {'Heading':{'insert':1},'Category':{'change':1}, 'Section':{'change':3}}
+    expected_changes = {'Heading':{'insert':1},'Category':{'change':1}, 'Section':{'insert':1, 'change':2}}
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 

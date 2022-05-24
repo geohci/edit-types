@@ -90,10 +90,10 @@ def extract_text(mwnode, lang='en'):
         # don't collapse whitespace for tables because otherwise strip_code sometimes merges text across cells
         return mwnode.contents.strip_code(collapse=False)
     # divs/galleries almost never have true text content and can be super messy so best ignored when building Text
-    elif ntype in ('Text Formatting', 'Reference'):
-        return mwnode.contents.strip_code()
-    # Heading, Template, Comment, Argument, Category, Media, URLs without display text
-    # Tags not listed here (div, gallery, etc.)
+    elif ntype == 'Text Formatting':
+        return ''.join(extract_text(mwn) for mwn in mwnode.contents.nodes)
+    # Heading, Template, Comment, Argument, Category, Media, References, URLs without display text
+    # Tags not listed here (div, gallery, etc.) that almost never have true text content and can be super messy
     # Table elements (they duplicate the text if included)
     else:
         return ''
@@ -506,6 +506,7 @@ class Differ:
             for i in range(0, len(transactions)):
                 if transactions[i][0] is None:
                     ins_node = self.t2[transactions[i][1]]
+                    # this second clause allows us to later detect moved sections
                     if ins_node.ntype != 'Section' or not ins_node.children:
                         insert.append(ins_node)
                 elif transactions[i][1] is None:
@@ -702,59 +703,59 @@ class Diff:
         curr_secs_checked = set()
         for idx in range(len(self.remove) - 1, -1, -1):
             r = self.remove[idx]
-            if r['type'] == 'Text':
-                prev_sec = r['section']
-                if prev_sec not in prev_secs_checked:
-                    prev_secs_checked.add(prev_sec)
-                    prev_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_prev[prev_sec]).nodes])
-                    curr_sec = self.sections_p_to_c[prev_sec]
+            prev_sec = r['section']
+            if prev_sec not in prev_secs_checked:
+                prev_secs_checked.add(prev_sec)
+                prev_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_prev[prev_sec]).nodes])
+                curr_sec = self.sections_p_to_c[prev_sec]
+                if curr_sec is None:
+                    changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
+                                             'section': prev_sec, 'offset': 0}})
+                else:
                     curr_secs_checked.add(curr_sec)
-                    if curr_sec is None:
-                        changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
-                                                 'section': prev_sec, 'offset': 0}})
-                    else:
-                        curr_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_curr[curr_sec]).nodes])
-                        if prev_text != curr_text:
-                            changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
-                                                     'section': prev_sec, 'offset': 0},
-                                            'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
-                                                     'section': curr_sec, 'offset': 0}})
-                self.remove.pop(idx)
-        for idx in range(len(self.insert) - 1, -1, -1):
-            i = self.insert[idx]
-            if i['type'] == 'Text':
-                curr_sec = i['section']
-                if curr_sec not in curr_secs_checked:
-                    curr_secs_checked.add(curr_sec)
-                    curr_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_curr[curr_sec]).nodes])
-                    prev_sec = self.sections_c_to_p[curr_sec]
-                    prev_secs_checked.add(prev_sec)
-                    if prev_sec is None:
-                        changes.append({'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
-                                                 'section': curr_sec, 'offset': 0}})
-                    else:
-                        prev_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_prev[prev_sec]).nodes])
-                        if prev_text != curr_text:
-                            changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
-                                                     'section': prev_sec, 'offset': 0},
-                                            'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
-                                                     'section': curr_sec, 'offset': 0}})
-                self.insert.pop(idx)
-        for idx in range(len(self.change) - 1, -1, -1):
-            pn = self.change[idx]['prev']
-            cn = self.change[idx]['curr']
-            if pn['type'] == 'Text':
-                prev_sec = pn['section']
-                if prev_sec not in prev_secs_checked:
-                    prev_secs_checked.add(prev_sec)
-                    prev_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_prev[prev_sec]).nodes])
-                    curr_sec = cn['section']
                     curr_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_curr[curr_sec]).nodes])
                     if prev_text != curr_text:
                         changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
                                                  'section': prev_sec, 'offset': 0},
                                         'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
                                                  'section': curr_sec, 'offset': 0}})
+            if r['type'] == 'Text':
+                self.remove.pop(idx)
+        for idx in range(len(self.insert) - 1, -1, -1):
+            i = self.insert[idx]
+            curr_sec = i['section']
+            if curr_sec not in curr_secs_checked:
+                curr_secs_checked.add(curr_sec)
+                curr_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_curr[curr_sec]).nodes])
+                prev_sec = self.sections_c_to_p[curr_sec]
+                if prev_sec is None:
+                    changes.append({'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
+                                             'section': curr_sec, 'offset': 0}})
+                else:
+                    prev_secs_checked.add(prev_sec)
+                    prev_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_prev[prev_sec]).nodes])
+                    if prev_text != curr_text:
+                        changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
+                                                 'section': prev_sec, 'offset': 0},
+                                        'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
+                                                 'section': curr_sec, 'offset': 0}})
+            if i['type'] == 'Text':
+                self.insert.pop(idx)
+        for idx in range(len(self.change) - 1, -1, -1):
+            pn = self.change[idx]['prev']
+            cn = self.change[idx]['curr']
+            prev_sec = pn['section']
+            if prev_sec not in prev_secs_checked:
+                prev_secs_checked.add(prev_sec)
+                prev_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_prev[prev_sec]).nodes])
+                curr_sec = cn['section']
+                curr_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_curr[curr_sec]).nodes])
+                if prev_text != curr_text:
+                    changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
+                                             'section': prev_sec, 'offset': 0},
+                                    'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
+                                             'section': curr_sec, 'offset': 0}})
+            if pn['type'] == 'Text':
                 self.change.pop(idx)
 
         for c in changes:

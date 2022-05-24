@@ -98,7 +98,7 @@ def is_change_in_edit_type(node_type,prev_wikitext='',curr_wikitext=''):
                 prev_filtered_ref = prev_parsed_text.filter_tags(matches=lambda node: node.tag == "ref",recursive=False)
                 curr_filtered_ref = curr_parsed_text.filter_tags(matches=lambda node: node.tag == "ref",recursive=False)
                 if len(prev_filtered_ref) > 0 and len(curr_filtered_ref) > 0:
-                    if prev_filtered_ref[0].contents != curr_filtered_ref[0].contents:
+                    if prev_filtered_ref[0] != curr_filtered_ref[0]:
                         return True, 'Reference'
             elif prev_wikitext != '' and curr_wikitext=='':
                 ref = prev_parsed_text.filter_tags(matches=lambda node: node.tag == "ref",recursive=False)
@@ -426,5 +426,13 @@ def get_diff_count(result, lang='en'):
     if section_titles:
         if 'Section' not in edit_types:
             edit_types['Section'] = {}
-        edit_types['Section']['change'] = len(section_titles)
+        sec_remove = edit_types.get('Heading', {}).get('remove', 0)
+        sec_insert = edit_types.get('Heading', {}).get('insert', 0)
+        sec_change = len(section_titles) - sec_remove - sec_insert
+        if sec_remove:
+            edit_types['Section']['remove'] = sec_remove
+        if sec_insert:
+            edit_types['Section']['insert'] = sec_insert
+        if sec_change:
+            edit_types['Section']['change'] = sec_change
     return edit_types
