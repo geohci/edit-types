@@ -173,10 +173,10 @@ class OrderedNode(NodeMixin):
             wt = mw.parse(self.text)
         parent_node = self
         base_offset = self.char_offset
-        parent_ranges = [(0, len(wt), self)]  # (start idx of node, end idx of node, node object)
+        parent_ranges = [(0, len(self.text), self)]  # (start idx of node, end idx of node, node object)
         for idx, nn in enumerate(wt.ifilter(recursive=True)):
             if idx == 0:
-                continue  # skip root node -- already set
+                continue  # skip root node -- already set or placeholder <br> node for galleries
             ntype = simple_node_class(nn, lang)
             if ntype == 'Text':
                 # media w/o bracket will be IDed as text by mwparserfromhell
@@ -187,7 +187,7 @@ class OrderedNode(NodeMixin):
                         nn_node = OrderedNode(f'Media: {m[:10]}...',
                                               ntype='Media',
                                               text=m,
-                                              char_offset=base_offset + wt.find(str(m), parent_ranges[0][0]),
+                                              char_offset=base_offset + self.text.find(str(m), parent_ranges[0][0]),
                                               section=self.section,
                                               parent=self)
             # tables are very highly-structured and produce a ton of nodes (each cell and more)
@@ -197,7 +197,7 @@ class OrderedNode(NodeMixin):
             elif ntype == 'Table Element':
                 pass
             else:
-                node_start = wt.find(str(nn), parent_ranges[0][0])  # start looking from the start of the latest node
+                node_start = self.text.find(str(nn), parent_ranges[0][0])  # start looking from the start of the latest node
                 # identify direct parent of node
                 for parent in parent_ranges:
                     if node_start < parent[1]:  # falls within parent range
@@ -255,6 +255,7 @@ class WikitextTree:
         for n in PostOrderIter(self.root):
             if n.ntype not in ('Article', 'Section', 'Heading', 'Text'):  # leaves tag, link, etc.
                 n.unnest(self.lang)
+
 
 class Differ:
     """
@@ -317,7 +318,7 @@ class Differ:
             self.prune_to_sections(t1, t2)
         # seems like manageable number of total nodes -- unnest fully before diffing
         elif expand_nodes and (sum([len(mw.parse(n.text).filter()) for n in PostOrderIter(t1.root)]) +
-                             sum([len(mw.parse(n.text).filter()) for n in PostOrderIter(t2.root)])) < 1000:
+                               sum([len(mw.parse(n.text).filter()) for n in PostOrderIter(t2.root)])) < 1000:
             t1.expand_nested()
             t2.expand_nested()
 
