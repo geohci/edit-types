@@ -5,7 +5,6 @@ from context import EditTypes  # tree-differ
 
 # Basic wikitext to play with that has most of the things we're interested in (image, categories, templates, etc.)
 # Source: https://en.wikipedia.org/wiki/Karl_Aigen
-# NOTE: I add the "==Lede==" section at the top as a useful preprocessing step
 prev_wikitext = """{{Short description|Austrian painter}}
 '''Karl Josef Aigen''' (8 October 1684 – 22 October 1762) was a landscape painter, born at [[Olomouc]].
 
@@ -73,7 +72,7 @@ def test_insert_category():
     curr_wikitext = prev_wikitext.replace('[[Category:Artists from Olomouc]]\n',
                                           '[[Category:Artists from Olomouc]]\n[[Category:TEST CATEGORY]]',
                                           1)
-    expected_changes = [('insert', 'S#5: External links (L2)', 'Category')]
+    expected_changes = [('insert', '4: ==External links==', 'Category')]
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
     diff.get_diff()
     check_change_counts(diff.tree_diff, expected_changes)
@@ -82,7 +81,7 @@ def test_insert_link():
     curr_wikitext = prev_wikitext.replace('He was a pupil of the Olomouc painter',
                                           'He was a [[pupil]] of the Olomouc painter',
                                           1)
-    expected_changes = [('insert', 'S#2: Life (L2)', 'Wikilink')]
+    expected_changes = [('insert', '1: ==Life==', 'Wikilink')]
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
     diff.get_diff()
     check_change_counts(diff.tree_diff, expected_changes)
@@ -92,7 +91,7 @@ def test_move_template():
                                           '',
                                           1)
     curr_wikitext = '{{Austria-painter-stub}}' + curr_wikitext
-    expected_changes = [('move', 'S#5: External links (L2)', 'Template')]
+    expected_changes = [('move', '4: ==External links==', 'Template')]
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
     diff.get_diff()
     check_change_counts(diff.tree_diff, expected_changes)
@@ -101,7 +100,7 @@ def test_change_heading():
     curr_wikitext = prev_wikitext.replace('===Works===',
                                           '===NotWorks===',
                                           1)
-    expected_changes = [('change', 'S#3: Works (L3)', 'Heading')]
+    expected_changes = [('change', '2: ===Works===', 'Heading')]
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
     diff.get_diff()
     check_change_counts(diff.tree_diff, expected_changes)
@@ -110,7 +109,7 @@ def test_remove_formatting():
     curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen'''",
                                           "Karl Josef Aigen",
                                           1)
-    expected_changes = [('remove', 'S#1: Lede (L2)', 'Text Formatting')]
+    expected_changes = [('remove', '0: Lede', 'Text Formatting')]
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
     diff.get_diff()
     check_change_counts(diff.tree_diff, expected_changes)
@@ -141,12 +140,12 @@ table = """{| border="1" cellspacing="0" cellpadding="5"
 
 def test_insert_table():
     curr_wikitext = prev_wikitext + '\n' + table
-    expected_changes = [('insert', 'S#5: External links (L2)', 'Table'),
-                        ('change', 'S#5: External links (L2)', 'Text'),
-                        ('insert', 'S#5: External links (L2)', 'Wikilink'),
-                        ('insert', 'S#5: External links (L2)', 'Wikilink'),
-                        ('insert', 'S#5: External links (L2)', 'Text Formatting'),
-                        ('insert', 'S#5: External links (L2)', 'Text Formatting')]
+    expected_changes = [('insert', '4: ==External links==', 'Table'),
+                        ('change', '4: ==External links==', 'Text'),
+                        ('insert', '4: ==External links==', 'Wikilink'),
+                        ('insert', '4: ==External links==', 'Wikilink'),
+                        ('insert', '4: ==External links==', 'Text Formatting'),
+                        ('insert', '4: ==External links==', 'Text Formatting')]
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
     diff.get_diff()
     check_change_counts(diff.tree_diff, expected_changes)
@@ -157,19 +156,19 @@ File:Lucas Cranach d.Ä. - Bildnis des Moritz Büchner.jpg|[[Lucas Cranach the E
 
 def test_insert_gallery():
     curr_wikitext = prev_wikitext + '\n' + gallery
-    expected_changes = [('insert', 'S#5: External links (L2)', 'Gallery'),
-                        ('change', 'S#5: External links (L2)', 'Text'),
-                        ('insert', 'S#5: External links (L2)', 'Media'),
-                        ('insert', 'S#5: External links (L2)', 'Wikilink'),
-                        ('insert', 'S#5: External links (L2)', 'Text Formatting')]
+    expected_changes = [('insert', '4: ==External links==', 'Gallery'),
+                        ('change', '4: ==External links==', 'Text'),
+                        ('insert', '4: ==External links==', 'Media'),
+                        ('insert', '4: ==External links==', 'Wikilink'),
+                        ('insert', '4: ==External links==', 'Text Formatting')]
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
     diff.get_diff()
     check_change_counts(diff.tree_diff, expected_changes)
 
 def test_table_change():
     curr_wikitext = table.replace('general election', 'gen elec', 1)
-    expected_changes = [('change', 'S#1: Lede (L2)', 'Wikilink'),
-                        ('change', 'S#1: Lede (L2)', 'Table')]
+    expected_changes = [('change', '0: Lede', 'Wikilink'),
+                        ('change', '0: Lede', 'Table')]
     diff = EditTypes(table, curr_wikitext, lang='en')
     diff.get_diff()
     check_change_counts(diff.tree_diff, expected_changes)
