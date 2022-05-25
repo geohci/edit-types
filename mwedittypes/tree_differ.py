@@ -11,9 +11,6 @@ from mwedittypes.constants import *
 def get_diff(prev_wikitext, curr_wikitext, lang='en', timeout=2, debug=False):
     """Run through full process of getting tree diff between two wikitext revisions."""
     # To provide proper structure, need all content to be nested under a section
-    if not prev_wikitext.startswith('==') and not curr_wikitext.startswith('=='):
-        prev_wikitext = '==Lede==\n' + prev_wikitext
-        curr_wikitext = '==Lede==\n' + curr_wikitext
     prev_tree = WikitextTree(wikitext=prev_wikitext, lang=lang)
     curr_tree = WikitextTree(wikitext=curr_wikitext, lang=lang)
     d = Differ(prev_tree, curr_tree, timeout=timeout)
@@ -57,9 +54,16 @@ def simple_node_class(mwnode, lang='en'):
         return nc
 
 
-def sec_to_name(mwsection, idx):
+def sec_to_name(mwsection, sidx):
     """Converts a section to an interpretible and unique name."""
-    return f'S#{idx}: {mwsection.nodes[0].title} (L{mwsection.nodes[0].level})'
+    if sidx == 0:
+        sectitle = 'Lede'
+    else:
+        try:
+            sectitle = str(mwsection.nodes[0])
+        except IndexError:
+            sectitle = ''
+    return f'{sidx}: {sectitle}'
 
 
 def node_to_name(mwnode, lang='en'):
@@ -233,7 +237,7 @@ class WikitextTree:
         """Build tree of document nodes from Wikipedia article.
 
         This approach builds a tree with an artificial 'root' node on the 1st level,
-        all of the article sections on the 2nd level (including an artificial Lede section),
+        all of the article sections nested flatly underneath (including the Lede section),
         and all of the text, link, template, etc. nodes nested under their respective sections.
         """
         wt = mw.parse(wikitext)
@@ -249,6 +253,13 @@ class WikitextTree:
                     n_node = OrderedNode(node_to_name(n, self.lang), ntype=simple_node_class(n, self.lang), text=n,
                                          char_offset=char_offset, section=s_node.name, parent=s_node)
                     char_offset += len(str(n))
+            # empty lede
+            else:
+                sec_hash = sec_to_name(s, sidx)
+                sec_text = ''
+                self.secname_to_text[sec_hash] = sec_text
+                s_node = OrderedNode(sec_hash, ntype="Section", text=sec_text, text_hash=sec_text, char_offset=0,
+                                     section=sec_hash, parent=self.root)
 
     def expand_nested(self):
         """Expand nested nodes in tree -- e.g., Ref tags with templates/links contained in them."""
