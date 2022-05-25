@@ -8,11 +8,7 @@ from mwsimpleedittypes.tokenizer import *
 
 # equivalent of main function
 def get_diff(prev_wikitext, curr_wikitext, lang='en', timeout=2):
-    """Run through full process of getting tree diff between two wikitext revisions."""
-    # To provide proper structure, need all content to be nested under a section
-    if not prev_wikitext.startswith('==') and not curr_wikitext.startswith('=='):
-        prev_wikitext = '==Lede==\n' + prev_wikitext
-        curr_wikitext = '==Lede==\n' + curr_wikitext
+    """Run through full process of getting diff between two wikitext revisions."""
     prev_tree = WikitextBag(wikitext=prev_wikitext, lang=lang)
     curr_tree = WikitextBag(wikitext=curr_wikitext, lang=lang)
     d = Differ(prev_tree, curr_tree, timeout=timeout)
@@ -55,10 +51,13 @@ def simple_node_class(mwnode, lang='en'):
         return nc
 
 
-def sec_to_name(mwsection, idx):
-    """Converts a section to an interpretible and unique name."""
-    return f'S#{idx}: {mwsection.nodes[0].title} (L{mwsection.nodes[0].level})'
-
+def sec_to_name(mwsection, sidx):
+    """Converts a section to a unique name."""
+    if sidx == 0:
+        sectitle = 'Lede'
+    else:
+        sectitle = str(mwsection.nodes[0])
+    return f'{sidx}: {sectitle}'
 
 def node_to_name(mwnode, lang='en'):
     """Converts a mwparserfromhell node to an interpretible name."""
