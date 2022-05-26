@@ -256,6 +256,13 @@ def test_large_unnested_change():
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
+def test_empty_previous():
+    curr_wikitext = 'Section with some text.'
+    expected_changes = {'Word':{'insert':4},'Section':{'insert':1}, 'Punctuation':{'insert':1}, 'Sentence':{'insert':1},
+                        'Paragraph':{'insert':1}, 'Whitespace':{'insert':3}}
+    diff = EditTypes('', curr_wikitext, lang='en').get_diff()
+    assert expected_changes == diff
+
 
 
 
