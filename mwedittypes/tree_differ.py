@@ -758,19 +758,44 @@ class Diff:
             if i['type'] == 'Text':
                 self.insert.pop(idx)
         for idx in range(len(self.change) - 1, -1, -1):
+            # check previous node first -- don't assume current is in same section and that
+            # the tree differ was correct about this being a change
             pn = self.change[idx]['prev']
-            cn = self.change[idx]['curr']
             prev_sec = pn['section']
             if prev_sec not in prev_secs_checked:
                 prev_secs_checked.add(prev_sec)
                 prev_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_prev[prev_sec]).nodes])
-                curr_sec = cn['section']
-                curr_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_curr[curr_sec]).nodes])
-                if prev_text != curr_text:
+                curr_sec = self.sections_p_to_c[prev_sec]
+                if curr_sec is None:
                     changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
-                                             'section': prev_sec, 'offset': 0},
-                                    'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
+                                             'section': prev_sec, 'offset': 0}})
+                else:
+                    curr_secs_checked.add(curr_sec)
+                    curr_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_curr[curr_sec]).nodes])
+                    if prev_text != curr_text:
+                        changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
+                                                 'section': prev_sec, 'offset': 0},
+                                        'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
+                                                 'section': curr_sec, 'offset': 0}})
+            # now check current node -- don't assume was in same section as previous
+            # or that the tree differ was correct about this being a change
+            cn = self.change[idx]['curr']
+            curr_sec = cn['section']
+            if curr_sec not in curr_secs_checked:
+                curr_secs_checked.add(curr_sec)
+                curr_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_curr[curr_sec]).nodes])
+                prev_sec = self.sections_c_to_p[curr_sec]
+                if prev_sec is None:
+                    changes.append({'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
                                              'section': curr_sec, 'offset': 0}})
+                else:
+                    prev_secs_checked.add(prev_sec)
+                    prev_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_prev[prev_sec]).nodes])
+                    if prev_text != curr_text:
+                        changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
+                                                 'section': prev_sec, 'offset': 0},
+                                        'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
+                                                 'section': curr_sec, 'offset': 0}})
             if pn['type'] == 'Text':
                 self.change.pop(idx)
 
