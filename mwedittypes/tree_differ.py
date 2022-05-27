@@ -711,65 +711,41 @@ class Diff:
     def _merge_text_changes(self, sections_prev, sections_curr, lang='en'):
         """Replace isolated text changes with section-level text changes."""
         changes = []
-        prev_secs_checked = set()
-        curr_secs_checked = set()
-        for idx in range(len(self.remove) - 1, -1, -1):
-            r = self.remove[idx]
-            prev_sec = r['section']
-            if prev_sec not in prev_secs_checked:
-                prev_secs_checked.add(prev_sec)
-                prev_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_prev[prev_sec]).nodes])
-                curr_sec = self.sections_p_to_c[prev_sec]
-                if curr_sec is None:
-                    changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
-                                             'section': prev_sec, 'offset': 0}})
-                else:
-                    curr_secs_checked.add(curr_sec)
-                    curr_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_curr[curr_sec]).nodes])
-                    if prev_text != curr_text:
-                        changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
-                                                 'section': prev_sec, 'offset': 0},
-                                        'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
-                                                 'section': curr_sec, 'offset': 0}})
-            if r['type'] == 'Text':
-                self.remove.pop(idx)
-        for idx in range(len(self.insert) - 1, -1, -1):
-            i = self.insert[idx]
-            curr_sec = i['section']
-            if curr_sec not in curr_secs_checked:
-                curr_secs_checked.add(curr_sec)
-                curr_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_curr[curr_sec]).nodes])
-                prev_sec = self.sections_c_to_p[curr_sec]
-                if prev_sec is None:
-                    changes.append({'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
-                                             'section': curr_sec, 'offset': 0}})
-                else:
-                    prev_secs_checked.add(prev_sec)
-                    prev_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_prev[prev_sec]).nodes])
-                    if prev_text != curr_text:
-                        changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
-                                                 'section': prev_sec, 'offset': 0},
-                                        'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
-                                                 'section': curr_sec, 'offset': 0}})
-            if i['type'] == 'Text':
-                self.insert.pop(idx)
-        for idx in range(len(self.change) - 1, -1, -1):
-            pn = self.change[idx]['prev']
-            cn = self.change[idx]['curr']
-            prev_sec = pn['section']
-            if prev_sec not in prev_secs_checked:
-                prev_secs_checked.add(prev_sec)
-                prev_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_prev[prev_sec]).nodes])
-                curr_sec = cn['section']
-                curr_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_curr[curr_sec]).nodes])
+        # check each previous section and add if not a match with its corresponding current section
+        for psec in self.sections_p_to_c:
+            csec = self.sections_p_to_c[psec]
+            if csec is None:
+                prev_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_prev[psec]).nodes])
+                changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
+                                         'section': psec, 'offset': 0}})
+            elif sections_prev[psec] != sections_curr[csec]:
+                prev_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_prev[psec]).nodes])
+                curr_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_curr[csec]).nodes])
                 if prev_text != curr_text:
                     changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
-                                             'section': prev_sec, 'offset': 0},
-                                    'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
-                                             'section': curr_sec, 'offset': 0}})
-            if pn['type'] == 'Text':
+                                                 'section': psec, 'offset': 0},
+                                        'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
+                                                 'section': csec, 'offset': 0}})
+        # add in unmatched sections from current (new sections)
+        for csec in self.sections_c_to_p:
+            psec = self.sections_c_to_p[csec]
+            if psec is None:
+                curr_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_curr[csec]).nodes])
+                changes.append({'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
+                                         'section': csec, 'offset': 0}})
+
+        # remove individual text changes
+        for idx in range(len(self.remove) - 1, -1, -1):
+            if self.remove[idx]['type'] == 'Text':
+                self.remove.pop(idx)
+        for idx in range(len(self.insert) - 1, -1, -1):
+            if self.insert[idx]['type'] == 'Text':
+                self.insert.pop(idx)
+        for idx in range(len(self.change) - 1, -1, -1):
+            if self.change[idx]['prev']['type'] == 'Text':
                 self.change.pop(idx)
 
+        # add in section-level text changes
         for c in changes:
             if 'prev' in c and 'curr' in c:
                 self.change.append(c)
