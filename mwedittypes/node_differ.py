@@ -427,7 +427,7 @@ def get_diff_count(result, lang='en'):
         if 'Section' not in edit_types:
             edit_types['Section'] = {}
         sec_remove = edit_types.get('Heading', {}).get('remove', 0)
-        sec_insert = edit_types.get('Heading', {}).get('insert', 0)
+        sec_insert = edit_types.get('Heading', {}).get('insert', 0) + int('prev-no-content' in result)
         sec_change = len(section_titles) - sec_remove - sec_insert
         if sec_remove:
             edit_types['Section']['remove'] = sec_remove

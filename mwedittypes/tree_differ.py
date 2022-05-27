@@ -16,6 +16,10 @@ def get_diff(prev_wikitext, curr_wikitext, lang='en', timeout=2, debug=False):
     d = Differ(prev_tree, curr_tree, timeout=timeout)
     diff = d.get_corresponding_nodes(debug=debug)
     result = diff.post_process(prev_tree.secname_to_text, curr_tree.secname_to_text, lang=lang)
+    # this helps the node differ know that the lede is also a new section
+    # otherwise depends on headings to track changes to sections
+    if not prev_wikitext:
+        result['prev-no-content'] = True
     return result
 
 
