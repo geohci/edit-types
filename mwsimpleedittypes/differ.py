@@ -129,7 +129,12 @@ class Node():
         # e.g., "==Section==\nThis is a section." would have as text "==Section==" but hash the full.
         # so the Differ doesn't identify a section/paragraph as changing when content within it is changed
         if text_hash is None:
-            self.text_hash = hash(self.text)
+            # for text-formatting, we don't care about whether the text within changes
+            # but whether the type of formatting changes
+            if ntype == 'Text Formatting':
+                self.text_hash = hash(str(mw.parse(self.text).nodes[0].tag))
+            else:
+                self.text_hash = hash(self.text)
         else:
             self.text_hash = hash(str(text_hash))
         self.section = section  # section that the node is a part of -- useful for formatting final diff

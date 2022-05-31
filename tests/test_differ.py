@@ -198,8 +198,23 @@ def test_reorder_text():
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
-# validate reference doesn't contribute text even though it's nested within text formatting
+# validate text formatting changes only recorded when the type of formatting changes not the text within
+# note ''Fischmarkt'' is part of an image, which is why this isn't recorded as a word change too.
 def test_text_from_formatting():
+    curr_wikitext = prev_wikitext.replace("''Fischmarkt''",
+                                          "''Fleischmarkt''",
+                                          1)
+    curr_wikitext = curr_wikitext.replace("'''Karl Josef Aigen'''",
+                                          "''Karl Josef Aigen''",
+                                          1)
+    expected_changes = {'Text Formatting':{'change':1},
+                        'Section':{'change':2}, 'Media':{'change':1}}
+    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert expected_changes == diff
+
+# validate text doubly nested within an object that contributes text (formatting) and one that doesn't (ref tag)
+# is correctly handled -- i.e. the ref doesn't contribute any words.
+def test_text_within_formatting():
     curr_wikitext = prev_wikitext.replace("the son of a goldsmith",
                                           "''the son of a goldsmith<ref>A reference: https://example.com/url-string</ref>''",
                                           1)
