@@ -59,6 +59,7 @@ def sec_to_name(mwsection, sidx):
         sectitle = str(mwsection.nodes[0])
     return f'{sidx}: {sectitle}'
 
+
 def node_to_name(mwnode, lang='en'):
     """Converts a mwparserfromhell node to an interpretible name."""
     n_txt = mwnode.replace("\n", "\\n")
@@ -113,7 +114,7 @@ def find_nested_media(wikitext, max_link_length=240):
     return media
 
 
-class Node():
+class Node:
     """
     Basic object for wrapping mwparserfromhell wikitext nodes
     """

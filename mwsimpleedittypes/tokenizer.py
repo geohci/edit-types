@@ -3,20 +3,21 @@ import string
 from collections import Counter
 from mwsimpleedittypes.constants import *
 
+
 class Tokenizer:
 
     def __init__(self, english_unicode, non_english_unicode, lang='en'):
         self.english_punc_regex = r'[{0}]'.format(re.escape(string.punctuation))
         self.english_unicode = english_unicode
-        self.non_english_unicode =  non_english_unicode
+        self.non_english_unicode = non_english_unicode
         self.lang = lang
 
     def get_punctuations(self, text):
-        #get ellipsis
-        ellipsis = re.findall(r'\.{3,}',text)
-        text = re.sub(r'\.{3,}','',text)
+        # get ellipses
+        ellipses = re.findall(r'\.{3,}', text)
+        text = re.sub(r'\.{3,}', '', text)
 
-        #Get other punctuations
+        # Get other punctuation
         english_punc_regex = re.findall(self.english_punc_regex, text)
 
         english_unicode_pattern = re.compile(self.english_unicode, re.UNICODE)
@@ -25,17 +26,15 @@ class Tokenizer:
         non_english_unicode_pattern = re.compile(self.non_english_unicode, re.UNICODE)
         non_english_punc_regex = re.findall(non_english_unicode_pattern, text)
 
-        return ellipsis + english_punc_regex +english_unicode_regex + non_english_punc_regex
-
+        return ellipses + english_punc_regex + english_unicode_regex + non_english_punc_regex
 
     def get_whitespace(self, text):
-        #Get whitespaces. Detects newlines, return characters as well as spaces as whitespaces.
-        whitespace = re.findall(r'[\s]',text)
+        # Get whitespaces. Detects newlines, return characters as well as spaces as whitespaces.
+        whitespace = re.findall(r'[\s]', text)
         return whitespace
-    
 
     def get_words(self, text):
-        #This extracts words inclusive of those with hyphens and apostrophes
+        # This extracts words inclusive of those with hyphens and apostrophes
         if self.lang in NON_WHITESPACE_LANGUAGES:
             word_list = re.findall(r"[\w]", text)
 
@@ -61,23 +60,9 @@ class Tokenizer:
 
     def get_paragraphs(self, text):
         if text != '':
-            paragraphs = [paragraph.strip() for paragraph in re.split(r'\n{2}', text) if len(self.get_words(paragraph)) > 0]
-
+            paragraphs = [p.strip() for p in re.split(r'\n{2}', text) if len(self.get_words(p)) > 0]
             return paragraphs
         return []
-
-    def tokenize_and_count(self, text):
-        if self.lang in NON_WHITESPACE_LANGUAGES:
-            word_key = 'Character'
-        else:
-            word_key = 'Word'
-
-        return {'Whitespace':len(self.get_whitespace(text)),
-                'Punctuation':len(self.get_punctuations(text)),
-                word_key: len(self.get_words(text)),
-                'Sentence':len(self.get_sentences(text)),
-                'Paragraph': len(self.get_paragraphs(text))
-                }
 
     def tokenize_and_get_occurence(self, text):
         whitespaces = self.get_whitespace(text)
@@ -97,9 +82,9 @@ class Tokenizer:
         else:
             word_key = 'Word'
         return {
-            'Whitespace':dict(whitespace_occurence),
-            'Punctuation':dict(punctuation_occurence),
-            word_key:dict(words_occurence),
-            'Sentence':dict(sentences_occurence),
-            'Paragraph':dict(paragraphs_occurence)
+            'Whitespace': dict(whitespace_occurence),
+            'Punctuation': dict(punctuation_occurence),
+            word_key: dict(words_occurence),
+            'Sentence': dict(sentences_occurence),
+            'Paragraph': dict(paragraphs_occurence)
         }

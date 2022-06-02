@@ -2,6 +2,7 @@
 Edit diffs and type detection for Wikipedia (simple).
 The goal is to transform unstructured edits to Wikipedia articles into a structured summary of what actions were taken in the edit.
 This is a simplified version of [mwedittypes](https://pypi.org/project/mwedittypes/), which is a structure-aware version of this library that can also detect content moves and more directly identify edit types.
+They generally have very high alignment but this library is almost 10x faster and has a smaller memory footprint.
 
 ## Installation
 You can install `mwsimpleedittypes` with `pip`:
@@ -58,7 +59,7 @@ This is generally the toughest part of diffing text but because we do not need t
 To do this, we break down text changes into five categories and identify how much of each changed: paragraphs, sentences, words, punctuation, and whitespace.
 
 ### Testing
-The tests for node/tree differs are contained within the `tests` directory.
+The tests for the differ are contained within the `tests` directory.
 They can be run via [pytest](https://docs.pytest.org).
 We are not even close to full coverage yet given the numerous node types (template, text, etc.) and four actions (insert/remove/change/move) and varying languages for e.g., Text or Category/Media nodes, but we are working on expanding coverage.
 
