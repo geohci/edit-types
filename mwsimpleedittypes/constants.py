@@ -13,19 +13,20 @@ LIST_TAGS = ('li', 'dt', 'dd', 'ul', 'ol', 'dl')
 NON_WHITESPACE_LANGUAGES = ('bo', 'dz', 'gan', 'ja', 'km', 'lo', 'my', 'th', 'wuu', 'zh', 'zh-classical', 'zh-yue',  # space-less
                             'bug', 'cdo', 'cr', 'hak',  # mixed space/spaceless. could also add: 'jv', 'zh-min-nan'
                             'vi')  # spaces but between syllables and not words
-# CJK period/question/exclamation; Bengali full-stop
+
+# CJK period/question/exclamation; Bengali full-stops
 NON_ENGLISH_PUNCTUATIONS = '。？！।॥'
-
-#[!?] - 1 or more ! or ? or non english punctuation
-#| - or 
+# This regex identifies end-of-sentence punctuation and new-lines as sentence breaks
+# It avoids matching dots between two digits but takes into account ellipses and fullstops.
+# fuller explanation:
+# [!?...] - 1 or more !, ?, new-line, or non-english stops
+# | - or
 # (?<!\.) - next character must not precede a fullstop
-#\. - next character
-#(?<=\d.) - must be preceded by a digit containing a fullstop
+# \. - next character
+# (?<=\d.) - must be preceded by a digit containing a fullstop
 # (?!(?<=\d.)\d) -  next character must not be followed by matching dots between two digits
-#(?!\.) - next character must not be followed by fullstop
-
-#The above avoids matching dots between two digits but takes into account ellipsis and fullstops        
-SENTENCE_BREAKS_REGEX = r'[!?{0}]+|(?<!\.)\.(?!(?<=\d.)\d)(?!\.)'.format(NON_ENGLISH_PUNCTUATIONS)
+# (?!\.) - next character must not be followed by fullstop
+SENTENCE_BREAKS_REGEX = r'[!?\n{0}]+|(?<!\.)\.(?!(?<=\d.)\d)(?!\.)'.format(NON_ENGLISH_PUNCTUATIONS)
 
 NON_ENGLISH_UNICODE = '''[\u0609\u060a\u060c\u060d\u061b\u061e\u061f\u066a\u066b\u066c
 \u070a\u070b\u070c\u070d\u07f7\u07f8\u07f9\u0830\u0831\u0832\u0833\u0834\u0835

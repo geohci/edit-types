@@ -3,8 +3,6 @@ import string
 from collections import Counter
 from mwsimpleedittypes.constants import *
 
-#Universal regex for punctuations
-
 class Tokenizer:
 
     def __init__(self, english_unicode, non_english_unicode, lang='en'):
@@ -53,12 +51,12 @@ class Tokenizer:
         return word_list
 
     def get_sentences(self, text):
-        #This regex accounts for ellipsis and splits accordingly
-        #Minimum sentence size is three words. So a sentence needs to have atleast 3 words in it
+        # minimum sentence size is two words, otherwise contributes to words etc. but not sentences
+        # we ignored leading/trailing whitespace differences on sentences when comparing as those aren't really changes
+        # the whitespace differences are still captured by the whitespace counts
         min_sentence_size = 2
-        #Add non-english sentence breaks
         sentences = re.split(SENTENCE_BREAKS_REGEX, text)
-        sentences = [ sentence.strip() for sentence in sentences if len(self.get_words(sentence)) >= min_sentence_size]
+        sentences = [s.strip() for s in sentences if len(self.get_words(s)) >= min_sentence_size]
         return sentences
 
     def get_paragraphs(self, text):
