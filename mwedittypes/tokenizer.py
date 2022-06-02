@@ -58,7 +58,7 @@ class Tokenizer:
         min_sentence_size = 2
         #Add non-english sentence breaks
         sentences = re.split(SENTENCE_BREAKS_REGEX, text)
-        sentences = [ sentence.strip() for sentence in sentences if len(self.get_words(sentence)) >= min_sentence_size]
+        sentences = [s.strip() for s in sentences if len(self.get_words(s)) >= min_sentence_size]
         return sentences
 
     def get_paragraphs(self, text):
