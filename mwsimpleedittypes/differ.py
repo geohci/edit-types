@@ -129,12 +129,7 @@ class Node():
         # e.g., "==Section==\nThis is a section." would have as text "==Section==" but hash the full.
         # so the Differ doesn't identify a section/paragraph as changing when content within it is changed
         if text_hash is None:
-            # for text-formatting, we don't care about whether the text within changes
-            # but whether the type of formatting changes
-            if ntype == 'Text Formatting':
-                self.text_hash = hash(str(mw.parse(self.text).nodes[0].tag))
-            else:
-                self.text_hash = hash(self.text)
+            self.text_hash = hash(self.text)
         else:
             self.text_hash = hash(str(text_hash))
         self.section = section  # section that the node is a part of -- useful for formatting final diff
@@ -256,6 +251,28 @@ class Differ:
             # expand out changed nodes and re-diff
             self.t1.expand_nested()
             self.t2.expand_nested()
+            # for second pass, we change text formatting to be hashes of the formatting type and not the text within
+            # if we do this from the start, we'll miss nested changes but at this point we only want to keep the
+            # text formatting changes if e.g., it goes from bold -> italics but content within the formatting
+            # are now represented by their own nodes
+            to_move = []
+            for n_hash in self.t1.nodes:
+                for nidx in range(len(self.t1.nodes[n_hash])-1, -1, -1):
+                    n = self.t1.nodes[n_hash][nidx]
+                    if n.ntype == 'Text Formatting':
+                        n.text_hash = hash(str(mw.parse(n.text).nodes[0].tag))
+                        to_move.append(self.t1.nodes[n_hash].pop(nidx))
+            for n in to_move:
+                self.t1.nodes[n.text_hash] = self.t1.nodes.get(n.text_hash, []) + [n]
+            to_move = []
+            for n_hash in self.t2.nodes:
+                for nidx in range(len(self.t2.nodes[n_hash])-1, -1, -1):
+                    n = self.t2.nodes[n_hash][nidx]
+                    if n.ntype == 'Text Formatting':
+                        n.text_hash = hash(str(mw.parse(n.text).nodes[0].tag))
+                        to_move.append(self.t2.nodes[n_hash].pop(nidx))
+            for n in to_move:
+                self.t2.nodes[n.text_hash] = self.t2.nodes.get(n.text_hash, []) + [n]
             self.sym_diff()
 
     def sym_diff(self):
@@ -264,7 +281,7 @@ class Differ:
         t2n = self.t2.nodes
         t1n_hashes = list(t1n.keys())
         for n_hash in t1n_hashes:
-            # if this doesn't match, can leave t1n dictonary unchanged because all nodes should be kept for this hash
+            # if this doesn't match, can leave t1n dictionary unchanged because all nodes should be kept for this hash
             if n_hash in t2n:
                 diff = len(t1n[n_hash]) - len(t2n[n_hash])
                 # fully-matched: remove from both sides

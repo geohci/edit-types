@@ -294,6 +294,14 @@ def test_remove_formatting():
     diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
+def test_link_within_formatting():
+    curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen'''",
+                                          "'''[[Karl Josef Aigen]]'''",
+                                          1)
+    expected_changes = {'Wikilink':{'insert':1},'Section':{'change':1}}
+    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert expected_changes == diff
+
 def test_change_formatting():
     curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen'''",
                                           "''Karl Josef Aigen''",
