@@ -1,14 +1,14 @@
-from context import EditTypes, prev_wikitext, cjk_prev_wikitext
+from context import SimpleEditTypes, prev_wikitext, cjk_prev_wikitext
 
 
-# Text test
+# Text tests
 def test_text_change():
     curr_wikitext = prev_wikitext.replace('Aigen was born in Olomouc on 8 October 1685, the son of a goldsmith.',
-                                          'Aigen-Abe was born in Olomouc on 9 October 1685, the child of a goldsmith.',
+                                          'Aigen-Abe was born in Olomouc on 9 October 1685, the daughter of a goldsmith.',
                                           1)
-    expected_changes = {'Sentence': {'change': 1}, 'Word': {'change': 3}, 'Punctuation': {'insert': 1},
-                        'Section': {'change': 1}, 'Paragraph': {'change': 1}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    expected_changes = {'Paragraph': {'change': 1}, 'Sentence': {'change': 1}, 'Word': {'change': 3},
+                        'Punctuation': {'insert': 1}, 'Section': {'change': 1}}
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
 
@@ -19,7 +19,7 @@ def test_hyphen_words():
 
     expected_changes = {'Word': {'change': 3, 'insert': 1}, 'Punctuation': {'insert': 2}, 'Whitespace': {'insert': 1},
                         'Sentence': {'change': 1}, 'Section': {'change': 1}, 'Paragraph': {'change': 1}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
 
@@ -28,29 +28,34 @@ def test_reorder_text():
                                           "He the a pupil of was Olomouc painter Maier Dominik.",
                                           1)
     expected_changes = {'Sentence': {'change': 1}, 'Paragraph': {'change': 1}, 'Section': {'change': 1}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
 
-# validate reference doesn't contribute text even though it's nested within text formatting
+# validate text formatting changes only recorded when the type of formatting changes not the text within
+# note ''Fischmarkt'' is part of an image, which is why this isn't recorded as a word change too.
 def test_text_from_formatting():
+    curr_wikitext = prev_wikitext.replace("''Fischmarkt''",
+                                          "''Fleischmarkt''",
+                                          1)
+    curr_wikitext = curr_wikitext.replace("'''Karl Josef Aigen'''",
+                                          "''Karl Josef Aigen''",
+                                          1)
+    expected_changes = {'Text Formatting': {'change': 1},
+                        'Section': {'change': 2}, 'Media': {'change': 1}}
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert expected_changes == diff
+
+
+# validate text doubly nested within an object that contributes text (formatting) and one that doesn't (ref tag)
+# is correctly handled -- i.e. the ref doesn't contribute any words.
+def test_text_within_formatting():
     curr_wikitext = prev_wikitext.replace("the son of a goldsmith",
                                           "''the son of a goldsmith<ref>A reference: https://example.com/url-string</ref>''",
                                           1)
     expected_changes = {'Text Formatting': {'insert': 1}, 'Reference': {'insert': 1}, 'ExternalLink': {'insert': 1},
                         'Section': {'change': 1}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
-
-
-# validate reference doesn't contribute text even though it's nested within text formatting
-def test_text_from_link():
-    curr_wikitext = prev_wikitext.replace("[[Vienna]]",
-                                          "[[Vienna|same link different text]]",
-                                          1)
-    expected_changes = {'Wikilink': {'change': 1}, 'Sentence': {'change': 1}, 'Paragraph': {'change': 1},
-                        'Section': {'change': 1}, 'Word': {'insert': 3, 'change': 1}, 'Whitespace': {'insert': 3}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
 
@@ -58,7 +63,7 @@ def test_change_cjk_punctuations():
     cjk_curr_wikitext = cjk_prev_wikitext.replace('。', '、', 1)
     expected_changes = {'Section': {'change': 1}, 'Punctuation': {'change': 1}, 'Sentence': {'change': 1, 'remove': 1},
                         'Paragraph': {'change': 1}}
-    diff = EditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
+    diff = SimpleEditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
     assert expected_changes == diff
 
 
@@ -66,7 +71,7 @@ def test_change_cjk_character():
     cjk_curr_wikitext = cjk_prev_wikitext.replace('番組は', '年度', 1)
     expected_changes = {'Section': {'change': 1}, 'Character': {'change': 2, 'remove': 1}, 'Sentence': {'change': 1},
                         'Paragraph': {'change': 1}}
-    diff = EditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
+    diff = SimpleEditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
     assert expected_changes == diff
 
 
@@ -74,19 +79,20 @@ def test_remove_cjk_punctuations():
     cjk_curr_wikitext = cjk_prev_wikitext.replace('。', '', 1)
     expected_changes = {'Section': {'change': 1}, 'Punctuation': {'remove': 1}, 'Sentence': {'change': 1, 'remove': 1},
                         'Paragraph': {'change': 1}}
-    diff = EditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
+    diff = SimpleEditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
     assert expected_changes == diff
 
 
 # Size Test
 
 def test_large_nested_change():
-    curr_wikitext = prev_wikitext.replace("<ref>{{Bryan (3rd edition)",
-                                          "<ref>{{Bryan (3rd edition)" + '[[link]]' * 1000,
+    curr_wikitext = prev_wikitext.replace("<ref>{{Bryan (3rd edition)|title=Aigen, Karl",
+                                          "<ref>{{Bryan (3rd edition)|title=Aigen, Karl" + '[[link]]' * 1000,
                                           1)
-    # shouldn't be expanded so only change to reference detected
-    expected_changes = {'Reference': {'change': 1}, 'Section': {'change': 1}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    # full library can't unnest so outputs:  {'Reference': {'change': 1}, 'Section': {'change': 1}}
+    expected_changes = {'Reference': {'change': 1}, 'Section': {'change': 1}, 'Wikilink': {'insert': 1000},
+                        'Template': {'change': 1}}
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
 
@@ -94,18 +100,13 @@ def test_large_unnested_change():
     curr_wikitext = prev_wikitext.replace("Aigen was born",
                                           "Aigen was born" + '[[link]]' * 1000,
                                           1)
-    # too many nodes -- should just compare section hashes to find edits
-    expected_changes = {'Section': {'change': 1}, 'Paragraph': {'change': 1}, 'Sentence': {'change': 1},
+    # in full library: {'Section': {'change': 1}} because too many nodes
+    expected_changes = {'Section': {'change': 1},
+                        'Wikilink': {'insert': 1000},
+                        'Paragraph': {'change': 1},
+                        'Sentence': {'change': 1},
                         'Word': {'change': 1}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
-
-
-def test_empty_previous():
-    curr_wikitext = 'Section with some text.'
-    expected_changes = {'Word': {'insert': 4}, 'Section': {'insert': 1}, 'Punctuation': {'insert': 1},
-                        'Sentence': {'insert': 1}, 'Paragraph': {'insert': 1}, 'Whitespace': {'insert': 3}}
-    diff = EditTypes('', curr_wikitext, lang='en').get_diff()
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
 
@@ -115,7 +116,7 @@ def test_insert_category():
                                           '[[Category:Artists from Olomouc]]\n[[Category:TEST CATEGORY]]',
                                           1)
     expected_changes = {'Category': {'insert': 1}, 'Section': {'change': 1}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
 
@@ -124,7 +125,7 @@ def test_change_category():
                                           '[[Category:Artists from somewhere else]]',
                                           1)
     expected_changes = {'Category': {'change': 1}, 'Section': {'change': 1}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
 
@@ -133,7 +134,16 @@ def test_remove_formatting():
                                           "Karl Josef Aigen",
                                           1)
     expected_changes = {'Text Formatting': {'remove': 1}, 'Section': {'change': 1}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert expected_changes == diff
+
+
+def test_link_within_formatting():
+    curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen'''",
+                                          "'''[[Karl Josef Aigen]]'''",
+                                          1)
+    expected_changes = {'Wikilink': {'insert': 1}, 'Section': {'change': 1}}
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
 
@@ -142,7 +152,7 @@ def test_change_formatting():
                                           "''Karl Josef Aigen''",
                                           1)
     expected_changes = {'Text Formatting': {'change': 1}, 'Section': {'change': 1}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
 
@@ -151,7 +161,7 @@ def test_insert_template():
                                           '{{Use dmy dates|date=April 2017}}\n{{Use dmy new dates|date=April 2017}}',
                                           1)
     expected_changes = {'Template': {'insert': 1}, 'Section': {'change': 1}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
 
@@ -160,7 +170,7 @@ def test_change_template():
                                           '{{Use dmy dates|date=April 2018}}\n',
                                           1)
     expected_changes = {'Template': {'change': 1}, 'Section': {'change': 1}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
 
@@ -170,7 +180,7 @@ def test_nested_nodes_ref_temp_link():
                                           1)
     expected_changes = {'Reference': {'change': 1}, 'Wikilink': {'insert': 1}, 'Template': {'change': 1},
                         'Section': {'change': 1}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
 
@@ -178,8 +188,8 @@ def test_swap_templates():
     curr_wikitext = prev_wikitext.replace("{{commons category}}\n{{Authority control}}",
                                           "{{Authority control}}\n{{commons category}}",
                                           1)
-    expected_changes = {'Template': {'move': 2}, 'Section': {'change': 1}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    expected_changes = {'Section': {'change': 1}}  # with full library: {'Template':{'move':2}, 'Section':{'change':1}}
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
 
@@ -188,7 +198,7 @@ def test_unbracketed_media():
                                           '===Works===\n<gallery>\nFile:Carl Aigen Fischmarkt.jpg|thumb|Caption\n</gallery>',
                                           1)
     expected_changes = {'Gallery': {'insert': 1}, 'Media': {'insert': 1}, 'Section': {'change': 1}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
 
@@ -198,7 +208,7 @@ def test_nested_nodes_media_format():
                                           1)
     expected_changes = {'Text Formatting': {'remove': 1}, 'Media': {'change': 1}, 'Reference': {'insert': 1},
                         'Section': {'change': 1}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
 
@@ -211,17 +221,18 @@ def test_complicated_sections():
     curr_wikitext = curr_wikitext.replace("[[Category:Artists from Olomouc]]",
                                           "[[Category:Artists in Olomouc]]",
                                           1)
+    print(curr_wikitext)
     expected_changes = {'Heading': {'insert': 1}, 'Category': {'change': 1}, 'Section': {'insert': 1, 'change': 2}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff
 
 
 def test_moved_section():
-    # swap Works and References sections with no other changes
+    # swap Works and References sections with no other changess
     curr_wikitext = prev_wikitext.replace(
         "\n\n===Works===\nThe [[Österreichische Galerie Belvedere|Gallery of the Belvedere]] in Vienna has two works by him, both scenes with figures.<ref>{{Bryan (3rd edition)|title=Aigen, Karl |volume=1}}</ref>\n\n==References==\n{{reflist}}",
         "\n\n==References==\n{{reflist}}\n\n===Works===\nThe [[Österreichische Galerie Belvedere|Gallery of the Belvedere]] in Vienna has two works by him, both scenes with figures.<ref>{{Bryan (3rd edition)|title=Aigen, Karl |volume=1}}</ref>",
         1)
-    expected_changes = {'Section': {'move': 1, 'change': 2}}
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    expected_changes = {}  # with full edit types:  {'Section':{'move':1, 'change':2}}
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert expected_changes == diff

@@ -29,6 +29,7 @@ The changes that happened would be:
 This repository would return this in the following structure: `{'Template':{'change':1}, 'Wikilink':{'insert':1}`.
 
 ### Basic Usage
+There is a more full-fledged but slower approach that takes into account article structure when determining changes:
 ```
 >>> from mwedittypes import EditTypes
 >>> prev_wikitext = '{{Short description|Austrian painter}}'
@@ -38,11 +39,26 @@ This repository would return this in the following structure: `{'Template':{'cha
 {'Wikilink': {'insert': 1}, 'Template': {'change': 1}}
 ```
 
+There is also a simplified but faster approach that ignores article structure when determining changes:
+```
+>>> from mwedittypes import SimpleEditTypes
+>>> prev_wikitext = '{{Short description|Austrian painter}}'
+>>> curr_wikitext = '{{Short description|Austrian [[landscape painter]]}}'
+>>> et = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en', timeout=5)
+>>> et.get_diff()
+{'Wikilink': {'insert': 1}, 'Template': {'change': 1}}
+```
+
+In most cases (~90%), the two approaches agree in their results. They differ in the following situations:
+* Very large diffs -- the EditTypes class is more likely to fall-back to a simple diff and miss some details as a result
+* Content moves -- the simplified library cannot detect moves
+* Changes vs. Inserts+Removes -- the simplified library does not distinguish between e.g., a template being changed vs. a template being removed and separate template being inserted
+
 ## Development
 We are happy to receive contributions though will default to keeping the code here relatively general (not overly customized to individual use-cases).
 Please reach out or open an issue for the changes you would like to merge so that we can discuss beforehand.
 
-### Code Summary
+### Code Summary -- EditTypes
 The code for computing diffs and running edit-type detection can be found in two files:
 * `mwedittypes/tree_differ.py`: this is the first stage of the diffing pipeline that detects high-level changes.
 * `mwedittypes/node_differ.py`: this is the second stage of the diffing pipeline that takes the tree_differ output, further processes it, and counts up the edit types.
@@ -58,8 +74,15 @@ To accurately, but efficiently, describe the scale of textual changes in edits, 
 This is generally the toughest part of diffing text but because we do not need to visually describe the diff, just estimate the scale of how much changed, we can use relatively simple methods.
 To do this, we break down text changes into five categories and identify how much of each changed: paragraphs, sentences, words, punctuation, and whitespace.
 
+### Code Summary -- SimpleEditTypes
+The code for computing diffs and running edit-type detection can be found in one file `mwedittypes/simple_differ.py`.
+
+The bulk of the library parses a wikitext document into a bag of nodes (Templates, Wikilinks, etc.). This uses largely the same parsing approach as `EditTypes`
+
+The diffing component simply takes the symmetric difference of the nodes associated with each wikitext document to identify what has changed and then summarizes similarly to `EditTypes`.
+
 ### Testing
-The tests for node/tree differs are contained within the `tests` directory.
+The tests for components are contained within the `tests` directory.
 They can be run via [pytest](https://docs.pytest.org).
 We are not even close to full coverage yet given the numerous node types (template, text, etc.) and four actions (insert/remove/change/move) and varying languages for e.g., Text or Category/Media nodes, but we are working on expanding coverage.
 
