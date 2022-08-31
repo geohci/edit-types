@@ -54,6 +54,14 @@ In most cases (~90%), the two approaches agree in their results. They differ in 
 * Content moves -- the simplified library cannot detect moves
 * Changes vs. Inserts+Removes -- the simplified library does not distinguish between e.g., a template being changed vs. a template being removed and separate template being inserted
 
+## Language Coverage
+Almost everything in this library is language-agnostic and so works consistently for any language of Wikipedia.
+For links, the namespace identification varies but we use a list of prefixes that covers all languages (at the time of generation).
+Sentences are semi-challenging in that we must build a list of sentence-ending punctuation that covers all languages. We believe we have done a good job of this but have not explicitly tested this. The list can be found in `mwedittypes/constants.py` under `SENTENCE_BREAKS_REGEX`. There is a known issue of how to detect and ignore abbreviations, which is something not currently handled.
+Words are the most challenging aspect and the one place where you will see varying behavior. For them we take two strategies:
+* For most languages, we split text based on whitespace. This is the default behavior.
+* There are many languages that either don't separate words with whitespace or use whitespace to instead delineate syllables. These can be found in `mwedittypes/constants.py` under `NON_WHITESPACE_LANGUAGES`. For these languages, we instead report the number of characters affected.
+
 ## Development
 We are happy to receive contributions though will default to keeping the code here relatively general (not overly customized to individual use-cases).
 Please reach out or open an issue for the changes you would like to merge so that we can discuss beforehand.
