@@ -4,12 +4,11 @@ from anytree import PostOrderIter, NodeMixin
 from anytree.util import leftsibling
 import mwparserfromhell as mw
 
-from mwedittypes.constants import *
-from mwedittypes.utils import *
+from mwedittypes.utils import find_nested_media, node_to_name, sec_to_name, simple_node_class, wikitext_to_plaintext
 
 
 # equivalent of main function
-def get_diff(prev_wikitext, curr_wikitext, lang='en', timeout=2, debug=False):
+def get_diff(prev_wikitext, curr_wikitext, lang='en', timeout=False, debug=False):
     """Run through full process of getting tree diff between two wikitext revisions."""
     # To provide proper structure, need all content to be nested under a section
     prev_tree = WikitextTree(wikitext=prev_wikitext, lang=lang)
@@ -21,6 +20,8 @@ def get_diff(prev_wikitext, curr_wikitext, lang='en', timeout=2, debug=False):
     # otherwise depends on headings to track changes to sections
     if not prev_wikitext:
         result['prev-no-content'] = True
+    if not curr_wikitext:
+        result['curr-no-content'] = True
     return result
 
 
@@ -89,7 +90,7 @@ class OrderedNode(NodeMixin):
                 # media w/o bracket will be IDed as text by mwparserfromhell
                 # templates / galleries are where we find this nested media
                 if self.ntype == 'Template' or self.ntype == 'Gallery':
-                    media = find_nested_media(str(nn))
+                    media = find_nested_media(str(nn), is_gallery=(self.ntype == 'Gallery'))
                     for m in media:
                         nn_node = OrderedNode(f'Media: {m[:10]}...',
                                               ntype='Media',
@@ -104,7 +105,8 @@ class OrderedNode(NodeMixin):
             elif ntype == 'Table Element':
                 pass
             else:
-                node_start = self.text.find(str(nn), parent_ranges[0][0])  # start looking from the start of the latest node
+                # start looking from the start of the latest node
+                node_start = self.text.find(str(nn), parent_ranges[0][0])
                 # identify direct parent of node
                 for parent in parent_ranges:
                     if node_start < parent[1]:  # falls within parent range
@@ -176,7 +178,8 @@ class Differ:
     Find structural differences between two WikitextTrees
     """
 
-    def __init__(self, t1, t2, timeout=2, expand_nodes=True):
+    def __init__(self, t1, t2, timeout=False, expand_nodes=True):
+        self.timeout = timeout  # if True, limit size of trees compared
         self.prune_trees(t1, t2, expand_nodes)
         self.t1 = []
         self.t2 = []
@@ -186,7 +189,6 @@ class Differ:
         for i, n in enumerate(PostOrderIter(t2.root)):
             n.idx = i
             self.t2.append(n)
-        self.timeout = time.time() + timeout
         self.ins_cost = 1
         self.rem_cost = 1
         self.chg_cost = 1
@@ -227,12 +229,13 @@ class Differ:
     def prune_trees(self, t1, t2, expand_nodes=False):
         """Quick heuristic preprocessing to reduce tree differ time by removing matching sections."""
         self.prune_sections(t1, t2)
-        # more than 500 nodes altogether even after pruning and before unnesting -- just diff sections
-        if (sum(1 for n in PostOrderIter(t1.root)) + sum(1 for n in PostOrderIter(t2.root))) > 500:
+        # arbitrary: more than 500 nodes altogether even after pruning and before unnesting -- just diff sections
+        if self.timeout and (sum(1 for n in PostOrderIter(t1.root)) + sum(1 for n in PostOrderIter(t2.root))) > 500:
             self.prune_to_sections(t1, t2)
-        # seems like manageable number of total nodes -- unnest fully before diffing
-        elif expand_nodes and (sum([len(mw.parse(n.text).filter()) for n in PostOrderIter(t1.root)]) +
-                               sum([len(mw.parse(n.text).filter()) for n in PostOrderIter(t2.root)])) < 1000:
+        # arbitrary: seems like manageable number of total nodes -- unnest fully before diffing
+        elif expand_nodes and (not self.timeout or
+                               (sum([len(mw.parse(n.text).filter()) for n in PostOrderIter(t1.root)]) +
+                               sum([len(mw.parse(n.text).filter()) for n in PostOrderIter(t2.root)])) < 1000):
             t1.expand_nested()
             t2.expand_nested()
 
@@ -283,9 +286,6 @@ class Differ:
 
                 # get the diff
                 self.find_minimum_transactions(kr1, kr2, transactions)
-                if time.time() > self.timeout:
-                    self.transactions = None
-                    return
 
         if self.transactions:
             for i in range(0, len(self.t1)):
@@ -443,14 +443,31 @@ class Differ:
                         nodes_changed=[], nodes_moved=[])
 
     def detect_moves(self, diff):
-        """Detect when nodes were moved (as opposed to removed/inserted/changed) and update diff."""
+        """Detect when nodes were moved (as opposed to removed/inserted/changed) and update diff.
+
+        Easy case:
+        * If a removed node from the previous wikitext matches an inserted node from the current wikitext,
+          then remove those nodes from the corresponding remove/insert spots and combine into a "move". Examples:
+          Input: Remove(A) and Insert(A) -> Move(A,A)
+
+        Harder cases:
+        * If a changed node from the previous wikitext matches a changed/inserted node from the current wikitext,
+          then match them as "move" like above but also update the corresponding "change" node in the current
+          wikitext to be an insert. Examples:
+          Input: Change(A,B) and Insert(A) -> Move(A,A) and Insert(B)
+          Input: Change(A,B) and Remove(B) -> Remove(A) and Move(B,B)
+          Input: Change(A,B) and Change(C,A) -> Move(A,A) and Insert(B) and Remove(C)
+          Input: Change(A,B) and Change(B,A) -> Move(A,A) and Move(B,B)
+        """
 
         # build list of all prev and curr nodes to compare for matches
-        prev_nodes = [('remove', i, pn) for i, pn in enumerate(diff['remove'])]
-        curr_nodes = [('insert', j, cn) for j, cn in enumerate(diff['insert'])]
+        ntypes_to_ignore = ('Text', 'Text Formatting')
+        prev_nodes = [('remove', i, pn) for i, pn in enumerate(diff['remove']) if pn.ntype not in ntypes_to_ignore]
+        curr_nodes = [('insert', j, cn) for j, cn in enumerate(diff['insert']) if cn.ntype not in ntypes_to_ignore]
         for k in range(len(diff['change'])):
-            prev_nodes.append(('change', k, diff['change'][k][0]))
-            curr_nodes.append(('change', k, diff['change'][k][1]))
+            if diff['change'][k][0].ntype not in ntypes_to_ignore:
+                prev_nodes.append(('change', k, diff['change'][k][0]))
+                curr_nodes.append(('change', k, diff['change'][k][1]))
 
         # loop through prev/curr nodes and look for matches. constraints:
         # * nodes can only match with one other node
@@ -458,21 +475,22 @@ class Differ:
         prev_moved = []
         curr_moved = []
         curr_found = set()
-        add_to_insert = {}
-        add_to_remove = {}
+        change_to_insert = {}
+        change_to_remove = {}
         for pet, pidx, pn in prev_nodes:
             for cet, cidx, cn in curr_nodes:
                 cid = f'{cet}-{cidx}'
+                # same type/text and not already part of a move
                 if pn.ntype == cn.ntype and pn.text_hash == cn.text_hash and cid not in curr_found:
                     prev_moved.append((pet, pidx))
                     curr_moved.append((cet, cidx))
                     curr_found.add(cid)
                     if pet == 'change':
                         corresponding_changed_node = diff['change'][pidx][1]
-                        add_to_insert[cidx] = corresponding_changed_node
+                        change_to_insert[pidx] = corresponding_changed_node
                     if cet == 'change':
                         corresponding_changed_node = diff['change'][cidx][0]
-                        add_to_remove[pidx] = corresponding_changed_node
+                        change_to_remove[cidx] = corresponding_changed_node
                     break
 
         # populate move list
@@ -485,24 +503,20 @@ class Differ:
                 pn = diff[pet][pidx]
                 if pet == 'change':  # pn is not the node but tuple of (prev_node, curr_node)
                     pn = pn[0]
-                    if pidx in add_to_remove:  # don't add to remove -- was involved in its own move
-                        add_to_remove.pop(pidx)
+                    if pidx in change_to_remove:  # don't add to remove -- was involved in its own move
+                        change_to_remove.pop(pidx)
                 cn = diff[cet][cidx]
                 if cet == 'change':
                     cn = cn[1]
-                    if cidx in add_to_insert:
-                        add_to_insert.pop(cidx)
+                    if cidx in change_to_insert:
+                        change_to_insert.pop(cidx)  # don't add to insert -- was involved in its own move
                 diff['move'].append((pn, cn))
-            prev_moved = sorted(prev_moved, reverse=True)
-            for pet, pidx in prev_moved:
-                diff[pet].pop(pidx)
-            curr_moved = sorted(curr_moved, reverse=True)
-            for cet, cidx in curr_moved:
-                if (cet, cidx) not in prev_moved:  # was part of a change, already popped
-                    diff[cet].pop(cidx)
+            moved = sorted(set(prev_moved + curr_moved), reverse=True)
+            for et, idx in moved:
+                diff[et].pop(idx)
 
-            diff['insert'].extend(list(add_to_insert.values()))
-            diff['remove'].extend(list(add_to_remove.values()))
+            diff['insert'].extend(list(change_to_insert.values()))
+            diff['remove'].extend(list(change_to_remove.values()))
 
 
 class Diff:
@@ -618,22 +632,22 @@ class Diff:
         for psec in self.sections_p_to_c:
             csec = self.sections_p_to_c[psec]
             if csec is None:
-                prev_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_prev[psec]).nodes])
+                prev_text = wikitext_to_plaintext(sections_prev[psec], lang=lang)
                 changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
                                          'section': psec, 'offset': 0}})
             elif sections_prev[psec] != sections_curr[csec]:
-                prev_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_prev[psec]).nodes])
-                curr_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_curr[csec]).nodes])
+                prev_text = wikitext_to_plaintext(sections_prev[psec], lang=lang)
+                curr_text = wikitext_to_plaintext(sections_curr[csec], lang=lang)
                 if prev_text != curr_text:
                     changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
-                                                 'section': psec, 'offset': 0},
-                                        'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
-                                                 'section': csec, 'offset': 0}})
+                                             'section': psec, 'offset': 0},
+                                    'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
+                                             'section': csec, 'offset': 0}})
         # add in unmatched sections from current (new sections)
         for csec in self.sections_c_to_p:
             psec = self.sections_c_to_p[csec]
             if psec is None:
-                curr_text = ''.join([extract_text(n, lang) for n in mw.parse(sections_curr[csec]).nodes])
+                curr_text = wikitext_to_plaintext(sections_curr[csec], lang=lang)
                 changes.append({'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
                                          'section': csec, 'offset': 0}})
 

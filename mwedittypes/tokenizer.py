@@ -1,7 +1,8 @@
+from collections import Counter
 import re
 import string
-from collections import Counter
-from mwedittypes.constants import *
+
+from mwedittypes.constants import ENGLISH_UNICODE, NON_ENGLISH_UNICODE, NON_WHITESPACE_LANGUAGES, SENTENCE_BREAKS_REGEX
 
 
 class Tokenizer:
@@ -41,12 +42,15 @@ class Tokenizer:
         else:
             # Get words with optionally hyphens and apostrophe:
             # \b - word breaks at start and end of word
-            # \w+ - matches 1 or more alphanumeric characters
+            # [\w...]+ - matches 1 or more alphanumeric characters
+            # \w captures most characters with some exceptions, especially for languages with spacing characters
+            # \u0980-\u09FF represents Bengali
+            # \u0901-\u0963 represents Devanagari (Hindi, Marathi, etc.)
             # [-']? allows for hyphen/apostrophes within word
             # ((?:...)+) capturing group (extract words) made up of 1+ non-capturing sequences of
             # alphanumeric + hyphen/apostrophe. this allows for many-time-hyphenated words and the non-capturing wrapped
             # in capturing is to only gather the entire word (otherwise capturing groups only capture the last instance)
-            word_list = re.findall(r"\b((?:\w+[-']?)+)\b", text)
+            word_list = re.findall(r"\b((?:[\w\u0980-\u09FF\u0901-\u0963]+[-']?)+)\b", text)
         return word_list
 
     def get_sentences(self, text):
@@ -71,25 +75,26 @@ class Tokenizer:
         sentences = self.get_sentences(text)
         paragraphs = self.get_paragraphs(text)
 
-        whitespace_occurence = Counter(whitespaces)
-        punctuation_occurence = Counter(punctuation)
-        words_occurence = Counter(words)
-        sentences_occurence = Counter(sentences)
-        paragraphs_occurence = Counter(paragraphs)
+        whitespace_occurrence = Counter(whitespaces)
+        punctuation_occurrence = Counter(punctuation)
+        words_occurrence = Counter(words)
+        sentences_occurrence = Counter(sentences)
+        paragraphs_occurrence = Counter(paragraphs)
 
         if self.lang in NON_WHITESPACE_LANGUAGES:
             word_key = 'Character'
         else:
             word_key = 'Word'
         return {
-            'Whitespace': dict(whitespace_occurence),
-            'Punctuation': dict(punctuation_occurence),
-            word_key: dict(words_occurence),
-            'Sentence': dict(sentences_occurence),
-            'Paragraph': dict(paragraphs_occurence)
+            'Whitespace': dict(whitespace_occurrence),
+            'Punctuation': dict(punctuation_occurrence),
+            word_key: dict(words_occurrence),
+            'Sentence': dict(sentences_occurrence),
+            'Paragraph': dict(paragraphs_occurrence)
         }
 
-def parse_change_text(prev_wikitext='',curr_wikitext='', lang='en'):
+
+def parse_change_text(prev_wikitext='', curr_wikitext='', lang='en', summarize=True):
     # Initialize tokenizer class
     tokenizer = Tokenizer(ENGLISH_UNICODE, NON_ENGLISH_UNICODE, lang=lang)
 
@@ -98,13 +103,13 @@ def parse_change_text(prev_wikitext='',curr_wikitext='', lang='en'):
 
     result = {}
     for text_category in curr_tokenizer.keys():
-        items_diff_list = list(set(curr_tokenizer[text_category].items())  ^ set(prev_tokenizer[text_category].items()))
+        items_diff_list = list(set(curr_tokenizer[text_category].items()) ^ set(prev_tokenizer[text_category].items()))
         for item in items_diff_list:
-            diff = curr_tokenizer[text_category].get(item[0], 0) - prev_tokenizer[text_category].get(item[0],0)
-            result[text_category] = dict(result.get(text_category,{}), **{item[0]:diff})
+            diff = curr_tokenizer[text_category].get(item[0], 0) - prev_tokenizer[text_category].get(item[0], 0)
+            result[text_category] = dict(result.get(text_category, {}), **{item[0]: diff})
 
-    #Get the maximum value between the sum of positives and sum of negatives
-        if len(result.get(text_category,{})) > 0:
+        # Get the maximum value between the sum of positives and sum of negatives
+        if summarize and len(result.get(text_category, {})) > 0:
             removals = sum(abs(item) for item in result[text_category].values() if item < 0)
             additions = sum(abs(item) for item in result[text_category].values() if item > 0)
             change = min(removals, additions)

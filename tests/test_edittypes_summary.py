@@ -1,5 +1,4 @@
-from context import SimpleEditTypes, prev_wikitext, cjk_prev_wikitext
-
+from context import cjk_prev_wikitext, StructuredEditTypes, full_diff_to_simple, prev_wikitext, SimpleEditTypes
 
 # Text tests
 def test_text_change():
@@ -9,7 +8,9 @@ def test_text_change():
     expected_changes = {'Paragraph': {'change': 1}, 'Sentence': {'change': 1}, 'Word': {'change': 3},
                         'Punctuation': {'insert': 1}, 'Section': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 def test_hyphen_words():
@@ -20,7 +21,9 @@ def test_hyphen_words():
     expected_changes = {'Word': {'change': 3, 'insert': 1}, 'Punctuation': {'insert': 2}, 'Whitespace': {'insert': 1},
                         'Sentence': {'change': 1}, 'Section': {'change': 1}, 'Paragraph': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 def test_reorder_text():
@@ -29,7 +32,9 @@ def test_reorder_text():
                                           1)
     expected_changes = {'Sentence': {'change': 1}, 'Paragraph': {'change': 1}, 'Section': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 # validate text formatting changes only recorded when the type of formatting changes not the text within
@@ -44,7 +49,9 @@ def test_text_from_formatting():
     expected_changes = {'Text Formatting': {'change': 1},
                         'Section': {'change': 2}, 'Media': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 # validate text doubly nested within an object that contributes text (formatting) and one that doesn't (ref tag)
@@ -56,7 +63,31 @@ def test_text_within_formatting():
     expected_changes = {'Text Formatting': {'insert': 1}, 'Reference': {'insert': 1}, 'ExternalLink': {'insert': 1},
                         'Section': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
+
+
+def test_text_from_link():
+    curr_wikitext = prev_wikitext.replace("[[Vienna]]",
+                                          "[[Vienna|same link different text]]",
+                                          1)
+    expected_changes = {'Wikilink': {'change': 1}, 'Sentence': {'change': 1}, 'Paragraph': {'change': 1},
+                        'Section': {'change': 1}, 'Word': {'insert': 3, 'change': 1}, 'Whitespace': {'insert': 3}}
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
+
+
+def test_empty_previous():
+    curr_wikitext = 'Section with some text.'
+    expected_changes = {'Word': {'insert': 4}, 'Section': {'insert': 1}, 'Punctuation': {'insert': 1},
+                        'Sentence': {'insert': 1}, 'Paragraph': {'insert': 1}, 'Whitespace': {'insert': 3}}
+    diff = SimpleEditTypes('', curr_wikitext, lang='en').get_diff()
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes('', curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 def test_change_cjk_punctuations():
@@ -64,7 +95,9 @@ def test_change_cjk_punctuations():
     expected_changes = {'Section': {'change': 1}, 'Punctuation': {'change': 1}, 'Sentence': {'change': 1, 'remove': 1},
                         'Paragraph': {'change': 1}}
     diff = SimpleEditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 def test_change_cjk_character():
@@ -72,7 +105,9 @@ def test_change_cjk_character():
     expected_changes = {'Section': {'change': 1}, 'Character': {'change': 2, 'remove': 1}, 'Sentence': {'change': 1},
                         'Paragraph': {'change': 1}}
     diff = SimpleEditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 def test_remove_cjk_punctuations():
@@ -80,7 +115,9 @@ def test_remove_cjk_punctuations():
     expected_changes = {'Section': {'change': 1}, 'Punctuation': {'remove': 1}, 'Sentence': {'change': 1, 'remove': 1},
                         'Paragraph': {'change': 1}}
     diff = SimpleEditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(cjk_prev_wikitext, cjk_curr_wikitext, lang='ja').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 # Size Test
@@ -89,25 +126,29 @@ def test_large_nested_change():
     curr_wikitext = prev_wikitext.replace("<ref>{{Bryan (3rd edition)|title=Aigen, Karl",
                                           "<ref>{{Bryan (3rd edition)|title=Aigen, Karl" + '[[link]]' * 1000,
                                           1)
-    # full library can't unnest so outputs:  {'Reference': {'change': 1}, 'Section': {'change': 1}}
-    expected_changes = {'Reference': {'change': 1}, 'Section': {'change': 1}, 'Wikilink': {'insert': 1000},
-                        'Template': {'change': 1}}
+    simple_expected_changes = {'Reference': {'change': 1}, 'Section': {'change': 1}, 'Wikilink': {'insert': 1000},
+                               'Template': {'change': 1}}
+    full_expected_changes = {'Reference': {'change': 1}, 'Section': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == simple_expected_changes
+    # with 1000 links, we hit a RecursionError while manipulating the node trees if we don't cap with timeout
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en', timeout=True).get_diff()
+    assert full_diff_to_simple(full_diff) == full_expected_changes
 
 
 def test_large_unnested_change():
     curr_wikitext = prev_wikitext.replace("Aigen was born",
                                           "Aigen was born" + '[[link]]' * 1000,
                                           1)
-    # in full library: {'Section': {'change': 1}} because too many nodes
     expected_changes = {'Section': {'change': 1},
                         'Wikilink': {'insert': 1000},
                         'Paragraph': {'change': 1},
                         'Sentence': {'change': 1},
                         'Word': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 # Non-text nodes test
@@ -117,7 +158,9 @@ def test_insert_category():
                                           1)
     expected_changes = {'Category': {'insert': 1}, 'Section': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 def test_change_category():
@@ -126,7 +169,9 @@ def test_change_category():
                                           1)
     expected_changes = {'Category': {'change': 1}, 'Section': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 def test_remove_formatting():
@@ -135,7 +180,9 @@ def test_remove_formatting():
                                           1)
     expected_changes = {'Text Formatting': {'remove': 1}, 'Section': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 def test_link_within_formatting():
@@ -144,7 +191,9 @@ def test_link_within_formatting():
                                           1)
     expected_changes = {'Wikilink': {'insert': 1}, 'Section': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 def test_change_formatting():
@@ -153,7 +202,9 @@ def test_change_formatting():
                                           1)
     expected_changes = {'Text Formatting': {'change': 1}, 'Section': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 def test_insert_template():
@@ -162,7 +213,9 @@ def test_insert_template():
                                           1)
     expected_changes = {'Template': {'insert': 1}, 'Section': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 def test_change_template():
@@ -171,7 +224,9 @@ def test_change_template():
                                           1)
     expected_changes = {'Template': {'change': 1}, 'Section': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 def test_nested_nodes_ref_temp_link():
@@ -181,16 +236,21 @@ def test_nested_nodes_ref_temp_link():
     expected_changes = {'Reference': {'change': 1}, 'Wikilink': {'insert': 1}, 'Template': {'change': 1},
                         'Section': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 def test_swap_templates():
     curr_wikitext = prev_wikitext.replace("{{commons category}}\n{{Authority control}}",
                                           "{{Authority control}}\n{{commons category}}",
                                           1)
-    expected_changes = {'Section': {'change': 1}}  # with full library: {'Template':{'move':2}, 'Section':{'change':1}}
+    simple_expected_changes = {'Section': {'change': 1}}
+    full_expected_changes = {'Template':{'move':2}, 'Section':{'change':1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == simple_expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == full_expected_changes
 
 
 def test_unbracketed_media():
@@ -199,7 +259,9 @@ def test_unbracketed_media():
                                           1)
     expected_changes = {'Gallery': {'insert': 1}, 'Media': {'insert': 1}, 'Section': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 def test_nested_nodes_media_format():
@@ -209,7 +271,9 @@ def test_nested_nodes_media_format():
     expected_changes = {'Text Formatting': {'remove': 1}, 'Media': {'change': 1}, 'Reference': {'insert': 1},
                         'Section': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 def test_complicated_sections():
@@ -221,10 +285,11 @@ def test_complicated_sections():
     curr_wikitext = curr_wikitext.replace("[[Category:Artists from Olomouc]]",
                                           "[[Category:Artists in Olomouc]]",
                                           1)
-    print(curr_wikitext)
     expected_changes = {'Heading': {'insert': 1}, 'Category': {'change': 1}, 'Section': {'insert': 1, 'change': 2}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == expected_changes
 
 
 def test_moved_section():
@@ -233,6 +298,10 @@ def test_moved_section():
         "\n\n===Works===\nThe [[Österreichische Galerie Belvedere|Gallery of the Belvedere]] in Vienna has two works by him, both scenes with figures.<ref>{{Bryan (3rd edition)|title=Aigen, Karl |volume=1}}</ref>\n\n==References==\n{{reflist}}",
         "\n\n==References==\n{{reflist}}\n\n===Works===\nThe [[Österreichische Galerie Belvedere|Gallery of the Belvedere]] in Vienna has two works by him, both scenes with figures.<ref>{{Bryan (3rd edition)|title=Aigen, Karl |volume=1}}</ref>",
         1)
-    expected_changes = {}  # with full edit types:  {'Section':{'move':1, 'change':2}}
+    simple_expected_changes = {}
+    full_expected_changes = {'Section':{'move':1, 'change':2}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert expected_changes == diff
+    assert diff == simple_expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert full_diff_to_simple(full_diff) == full_expected_changes
+

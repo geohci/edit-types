@@ -1,7 +1,7 @@
 import copy
 import json
 
-from context import EditTypes, prev_wikitext
+from context import StructuredEditTypes, prev_wikitext
 
 
 def check_change_counts(diff, expected_changes):
@@ -32,7 +32,7 @@ def test_insert_category():
                                           '[[Category:Artists from Olomouc]]\n[[Category:TEST CATEGORY]]',
                                           1)
     expected_changes = [('insert', '4: ==External links==', 'Category')]
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
+    diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en')
     diff.get_diff()
     check_change_counts(diff.tree_diff, expected_changes)
 
@@ -42,7 +42,7 @@ def test_insert_link():
                                           'He was a [[pupil]] of the Olomouc painter',
                                           1)
     expected_changes = [('insert', '1: ==Life==', 'Wikilink')]
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
+    diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en')
     diff.get_diff()
     check_change_counts(diff.tree_diff, expected_changes)
 
@@ -53,7 +53,7 @@ def test_move_template():
                                           1)
     curr_wikitext = '{{Austria-painter-stub}}' + curr_wikitext
     expected_changes = [('move', '4: ==External links==', 'Template')]
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
+    diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en')
     diff.get_diff()
     check_change_counts(diff.tree_diff, expected_changes)
 
@@ -63,7 +63,7 @@ def test_change_heading():
                                           '===NotWorks===',
                                           1)
     expected_changes = [('change', '2: ===Works===', 'Heading')]
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
+    diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en')
     diff.get_diff()
     check_change_counts(diff.tree_diff, expected_changes)
 
@@ -73,7 +73,7 @@ def test_remove_formatting():
                                           "Karl Josef Aigen",
                                           1)
     expected_changes = [('remove', '0: Lede', 'Text Formatting')]
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
+    diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en')
     diff.get_diff()
     check_change_counts(diff.tree_diff, expected_changes)
 
@@ -111,7 +111,7 @@ def test_insert_table():
                         ('insert', '4: ==External links==', 'Wikilink'),
                         ('insert', '4: ==External links==', 'Text Formatting'),
                         ('insert', '4: ==External links==', 'Text Formatting')]
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
+    diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en')
     diff.get_diff()
     check_change_counts(diff.tree_diff, expected_changes)
 
@@ -128,7 +128,7 @@ def test_insert_gallery():
                         ('insert', '4: ==External links==', 'Media'),
                         ('insert', '4: ==External links==', 'Wikilink'),
                         ('insert', '4: ==External links==', 'Text Formatting')]
-    diff = EditTypes(prev_wikitext, curr_wikitext, lang='en')
+    diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en')
     diff.get_diff()
     check_change_counts(diff.tree_diff, expected_changes)
 
@@ -137,6 +137,6 @@ def test_table_change():
     curr_wikitext = table.replace('general election', 'gen elec', 1)
     expected_changes = [('change', '0: Lede', 'Wikilink'),
                         ('change', '0: Lede', 'Table')]
-    diff = EditTypes(table, curr_wikitext, lang='en')
+    diff = StructuredEditTypes(table, curr_wikitext, lang='en')
     diff.get_diff()
     check_change_counts(diff.tree_diff, expected_changes)

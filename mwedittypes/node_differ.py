@@ -1,364 +1,350 @@
-import re  # not technically needed because part of mwedittypes.tokenizer but that's confusing
-
+from collections import namedtuple
 import mwparserfromhell as mw
-from mwedittypes.tokenizer import *
-from mwedittypes.constants import *
+
+from mwedittypes.tokenizer import parse_change_text
+from mwedittypes.utils import parse_image_options
+
+NodeEdit = namedtuple('NodeEdit', ['type', 'edittype', 'section', 'name', 'changes'])
+TextEdit = namedtuple('TextEdit', ['type', 'edittype', 'text', 'count'])
+Context = namedtuple('Context', ['type', 'edittype', 'count'])
 
 
-def is_change_in_edit_type(node_type, prev_wikitext='', curr_wikitext=''):
-    """ Checks if a change occurs in wikitext
+def get_node_diff(node_type, prev_wikitext='', curr_wikitext='', lang='en'):
+    """Identify fine-grained changes between two wikitext nodes.
 
     Parameters
     ----------
-    prev_wikitext : str
-        Previous Wikitext
-    curr_wikitext : str
-        Current Wikitext
     node_type: str
-        Node type
+        Node type -- e.g., Template, Category
+    prev_wikitext : str
+        Previous wikitext for node
+    curr_wikitext : str
+        Current wikitext for node
+    lang : str
+        Language code for Wikipedia -- e.g., 'en' = English
+
     Returns
     -------
-    tuple
-        Tuple containing the bool and edit type
+    changes
+        List with specific differences between previous and current nodes. Most whitespace changes are ignored.
     """
+    name = None
+    changes = []
     try:
-        prev_wikicode = mw.parse(prev_wikitext)
-        curr_wikicode = mw.parse(curr_wikitext)
+        prev_wc = mw.parse(prev_wikitext).nodes[0] if prev_wikitext else None
+        curr_wc = mw.parse(curr_wikitext).nodes[0] if curr_wikitext else None
 
         if node_type == 'Template':
-            if prev_wikitext != '' and curr_wikitext != '':
-                prev_temp = {str(temp.name): str(temp.value) for temp in prev_wikicode.filter_templates(recursive=False)[0].params}
-                prev_temp = dict(prev_temp, **{'template_name': str(prev_wikicode.filter_templates(recursive=False)[0].name)})
-                
-                curr_temp = {str(temp.name): str(temp.value) for temp in curr_wikicode.filter_templates(recursive=False)[0].params}
-                curr_temp = dict(curr_temp, **{'template_name': str(curr_wikicode.filter_templates(recursive=False)[0].name)})
-                
-                # Get the difference between template parameters. If it is more than 0, then a change occurred
-                if len(set(curr_temp.items()) ^ set(prev_temp.items())) > 0:
-                    return True, 'Template'
-            elif prev_wikitext != '' and curr_wikitext == '':
-                templates = prev_wikicode.filter_templates(recursive=False)
-                if len(templates) > 0:
-                    return True, 'Template'
-            elif prev_wikitext == '' and curr_wikitext != '':
-                templates = curr_wikicode.filter_templates(recursive=False)
-                if len(templates) > 0:
-                    return True, 'Template'
-            
+            # separate between name changes and parameter changes
+            pt_name = prev_wc.name.strip() if prev_wc else None
+            ct_name = curr_wc.name.strip() if curr_wc else None
+            name = pt_name if pt_name else ct_name
+            pt_params = {str(p.name).strip(): str(p.value).strip() for p in prev_wc.params} if prev_wc else {}
+            ct_params = {str(p.name).strip(): str(p.value).strip() for p in curr_wc.params} if curr_wc else {}
+            if pt_name != ct_name:
+                changes.append(('name', pt_name, ct_name))
+            params = set(pt_params).union(set(ct_params))
+            for p in params:
+                if pt_params.get(p) != ct_params.get(p):
+                    changes.append(('parameter',
+                                    (p, pt_params[p]) if p in pt_params else None,
+                                    (p, ct_params[p]) if p in ct_params else None))
+
         elif node_type == 'Media':
-            if prev_wikitext != '' and curr_wikitext != '':
-                if len(prev_wikicode) > 0 and len(curr_wikicode) > 0:
-                    return True, 'Media'
-            elif prev_wikitext != '' and curr_wikitext == '':
-                if len(prev_wikicode) > 0:
-                    return True, 'Media'
-            elif prev_wikitext == '' and curr_wikitext != '':
-                if len(curr_wikicode) > 0:
-                    return True, 'Media'
-        
+            # Media can be in three different formats:
+            # Brackets: [[File:filename.ext|formatting options|caption]]
+            # Template: File:filename.ext
+            # Gallery: filename.ext|formatting options|caption
+            # If template or gallery, we add the brackets and re-parse so the title/options can be consistently handled
+            if prev_wikitext and not prev_wikitext.startswith('[['):
+                prev_wc = mw.parse(f'[[{prev_wikitext}]]').nodes[0]
+            if curr_wikitext and not curr_wikitext.startswith('[['):
+                curr_wc = mw.parse(f'[[{curr_wikitext}]]').nodes[0]
+
+            pm_title = prev_wc.title.strip() if prev_wc else None
+            cm_title = curr_wc.title.strip() if curr_wc else None
+            name = pm_title if pm_title else cm_title
+            if pm_title != cm_title:
+                changes.append(('filename', pm_title, cm_title))
+
+            pm_options, pm_caption = parse_image_options(prev_wc.text.strip() if prev_wc else '', lang=lang)
+            cm_options, cm_caption = parse_image_options(curr_wc.text.strip() if curr_wc else '', lang=lang)
+
+            if pm_caption != cm_caption:
+                changes.append(('caption', pm_caption, cm_caption))
+
+            options = set(pm_options).union(set(cm_options))
+            for o in options:
+                if o not in pm_options:
+                    changes.append(('option', None, o))
+                elif o not in cm_options:
+                    changes.append(('option', o, None))
+
         elif node_type == 'Category':
-            if prev_wikitext != '' and curr_wikitext != '':
-                prev_cat = prev_wikicode.filter_wikilinks(recursive=False)
-                curr_cat = curr_wikicode.filter_wikilinks(recursive=False)
-                if len(prev_cat) > 0 and len(curr_cat) > 0:
-                    if prev_cat[0].text != curr_cat[0].text or prev_cat[0].title != curr_cat[0].title:
-                        return True, 'Category'
-            elif prev_wikitext != '' and curr_wikitext == '':
-                category = prev_wikicode.filter_wikilinks(recursive=False)
-                if len(category) > 0:
-                    return True, 'Category'
-            elif prev_wikitext == '' and curr_wikitext != '':
-                category = curr_wikicode.filter_wikilinks(recursive=False)
-                if len(category) > 0:
-                    return True, 'Category'
+            # identify if category name changes in likely meaningful way
+            prev_cat = prev_wc.title.split(':', maxsplit=1)[1].replace('_', ' ') if prev_wc else None
+            curr_cat = curr_wc.title.split(':', maxsplit=1)[1].replace('_', ' ') if curr_wc else None
+            name = prev_cat if prev_cat else curr_cat
+            if prev_cat != curr_cat:
+                changes.append(('title', prev_cat, curr_cat))
 
         elif node_type == 'Wikilink':
-            if prev_wikitext != '' and curr_wikitext != '':
-                prev_wikilink = prev_wikicode.filter_wikilinks(recursive=False)
-                curr_wikilink = curr_wikicode.filter_wikilinks(recursive=False)
-                if len(prev_wikilink) > 0 and len(curr_wikilink) > 0:
-                    if prev_wikilink[0].text != curr_wikilink[0].text or prev_wikilink[0].title != curr_wikilink[0].title:
-                        return True, 'Wikilink'
-            elif prev_wikitext != '' and curr_wikitext == '':
-                wikilinks = prev_wikicode.filter_wikilinks(recursive=False)
-                if len(wikilinks) > 0:
-                    return True, 'Wikilink' 
-            elif prev_wikitext == '' and curr_wikitext != '':
-                wikilinks = curr_wikicode.filter_wikilinks(recursive=False)
-                if len(wikilinks) > 0:
-                    return True, 'Wikilink'
-        
+            # separate between title (destination) and text (display) changes
+            pl_title = prev_wc.title.strip() if prev_wc and prev_wc.title else None
+            cl_title = curr_wc.title.strip() if curr_wc and curr_wc.title else None
+            name = pl_title if pl_title else cl_title
+            if pl_title != cl_title:
+                changes.append(('title', pl_title, cl_title))
+
+            pl_text = prev_wc.text.strip() if prev_wc and prev_wc.text else None
+            cl_text = curr_wc.text.strip() if curr_wc and curr_wc.text else None
+            if pl_text != cl_text:
+                changes.append(('text', pl_text, cl_text))
+
         elif node_type == 'Reference':
-            # Check if a reference changes
-            if prev_wikitext != '' and curr_wikitext != '':
-                prev_ref = prev_wikicode.filter_tags(matches=lambda node: node.tag == "ref", recursive=False)
-                curr_ref = curr_wikicode.filter_tags(matches=lambda node: node.tag == "ref", recursive=False)
-                if len(prev_ref) > 0 and len(curr_ref) > 0:
-                    if prev_ref[0] != curr_ref[0]:
-                        return True, 'Reference'
-            elif prev_wikitext != '' and curr_wikitext == '':
-                ref = prev_wikicode.filter_tags(matches=lambda node: node.tag == "ref", recursive=False)
-                if len(ref) > 0:
-                    return True, 'Reference'
-            elif prev_wikitext == '' and curr_wikitext != '':
-                ref = curr_wikicode.filter_tags(matches=lambda node: node.tag == "ref", recursive=False)
-                if len(ref) > 0:
-                    return True, 'Reference'
+            # Separate between attributes and contents changes
+            pr_name = None
+            for a in prev_wc.attributes:
+                if a.name == 'name':
+                    pr_name = a.value
+            cr_name = None
+            for a in curr_wc.attributes:
+                if a.name == 'name':
+                    cr_name = a.value
+            if pr_name != cr_name:
+                changes.append(('name', pr_name, cr_name))
+
+            # ref text -- ignoring templates etc.
+            pr_text = prev_wc.contents.strip_code().strip() if prev_wc else None
+            cr_text = curr_wc.contents.strip_code().strip() if curr_wc else None
+            if pr_text != cr_text:
+                changes.append(('text', pr_text, cr_text))
+
+            if pr_name:
+                name = pr_name
+            elif cr_name:
+                name = cr_name
+
+            # heuristic -- check first template too
+            try:
+                pr_temp = str(prev_wc.contents.filter_templates(recursive=False)[0])
+            except Exception:
+                pr_temp = ''
+            try:
+                cr_temp = str(curr_wc.contents.filter_templates(recursive=False)[0])
+            except Exception:
+                cr_temp = ''
+
+            if pr_temp != cr_temp:
+                changes.append(('ref-template', pr_temp, cr_temp))
 
         elif node_type == 'Table':
-            if prev_wikitext != '' and curr_wikitext != '':
-                # Check if a table changes
-                prev_table = prev_wikicode.filter_tags(matches=lambda node: node.tag == "table", recursive=False)
-                curr_table = curr_wikicode.filter_tags(matches=lambda node: node.tag == "table", recursive=False)
-                if len(prev_table) > 0 and len(curr_table) > 0:
-                    if prev_table[0].contents != curr_table[0].contents:
-                        return True, 'Table'
-            elif prev_wikitext != '' and curr_wikitext == '':
-                tables = prev_wikicode.filter_tags(matches=lambda node: node.tag == "table", recursive=False)
-                if len(tables) > 0:
-                    return True, 'Table'
-            elif prev_wikitext == '' and curr_wikitext != '':
-                tables = curr_wikicode.filter_tags(matches=lambda node: node.tag == "table", recursive=False)
-                if len(tables) > 0:
-                    return True, 'Table'
+            # check for attribute changes, header changes, cell changes
+            pt_attrs = {str(a.name).strip(): str(a.value).strip() for a in prev_wc.attributes} if prev_wc else {}
+            ct_attrs = {str(a.name).strip(): str(a.value).strip() for a in curr_wc.attributes} if curr_wc else {}
+            attrs = set(pt_attrs).union(set(ct_attrs))
+            for a in attrs:
+                if pt_attrs.get(a) != ct_attrs.get(a):
+                    changes.append(('attribute',
+                                    (a, pt_attrs[a]) if a in pt_attrs else None,
+                                    (a, ct_attrs[a]) if a in ct_attrs else None))
+
+            pt_caption = None
+            pt_cells = {}
+            if prev_wc:
+                for te in mw.parse(prev_wikitext).filter_tags():
+                    if te.tag == 'td' or te.tag == 'th':
+                        if '+' in [a.name for a in te.attributes] or te.contents.startswith('+'):
+                            pt_caption = te.contents.lstrip('+')
+                        else:
+                            cell = hash(te.contents.strip())
+                            pt_cells[cell] = pt_cells.get(cell, 0) + 1
+
+            ct_caption = None
+            ct_cells = {}
+            if curr_wc:
+                for te in mw.parse(curr_wikitext).filter_tags():
+                    if te.tag == 'td' or te.tag == 'th':
+                        if '+' in [a.name for a in te.attributes] or te.contents.startswith('+'):
+                            ct_caption = te.contents.lstrip('+')
+                        else:
+                            cell = hash(te.contents.strip())
+                            ct_cells[cell] = ct_cells.get(cell, 0) + 1
+
+            if pt_caption != ct_caption:
+                changes.append(('caption', pt_caption, ct_caption))
+
+            allcells = set(pt_cells.keys()).union(set(ct_cells.keys()))
+            changed = 0
+            inserted = max(0, sum(ct_cells.values()) - sum(pt_cells.values()))
+            removed = max(0, sum(pt_cells.values()) - sum(ct_cells.values()))
+            for c in allcells:
+                changed += abs(pt_cells.get(c, 0) - ct_cells.get(c, 0))
+            changed -= (inserted + removed)
+            changed = changed / 2  # each change results in two no-longer-matching cell values
+            if inserted:
+                changes.append(('cells', 'insert', inserted))
+            if removed:
+                changes.append(('cells', 'remove', removed))
+            if changed:
+                changes.append(('cells', 'change', changed))
 
         elif node_type == 'Text Formatting':
-            # Check if a text format changes
-            if prev_wikitext != '' and curr_wikitext != '':
-                prev_text_formatting = prev_wikicode.filter_tags(matches=lambda node: node.tag in TEXT_FORMATTING_TAGS, recursive=False)
-                curr_text_formatting = curr_wikicode.filter_tags(matches=lambda node: node.tag in TEXT_FORMATTING_TAGS, recursive=False)
-                if len(prev_text_formatting) > 0 and len(curr_text_formatting) > 0:
-                    if prev_text_formatting[0].tag != curr_text_formatting[0].tag:
-                        return True, 'Text Formatting'
-            elif prev_wikitext != '' and curr_wikitext == '':
-                text_format = prev_wikicode.filter_tags(matches=lambda node: node.tag in TEXT_FORMATTING_TAGS, recursive=False)
-                if len(text_format) > 0:
-                    return True, 'Text Formatting'
-            elif prev_wikitext == '' and curr_wikitext != '':
-                text_format = curr_wikicode.filter_tags(matches=lambda node: node.tag in TEXT_FORMATTING_TAGS, recursive=False)
-                if len(text_format) > 0:
-                    return True, 'Text Formatting'
+            # check if format type changed
+            # Note this will skip '''text''' -> <b>text</b> which are both `b` tags (same for italics)
+            prev_tag = str(prev_wc.tag) if prev_wc else None
+            curr_tag = str(curr_wc.tag) if curr_wc else None
+            if prev_tag != curr_tag:
+                changes.append(('format tag', prev_tag, curr_tag))
 
         elif node_type == 'List':
-            if prev_wikitext != '' and curr_wikitext != '':
-                # Check if a list changes
-                prev_list = prev_wikicode.filter_tags(matches=lambda node: node.tag in LIST_TAGS, recursive=False)
-                curr_list = curr_wikicode.filter_tags(matches=lambda node: node.tag in LIST_TAGS, recursive=False)
-                if len(prev_list) > 0 and len(curr_list) > 0:
-                    if prev_list[0].contents != curr_list[0].contents:
-                        return True, 'List'
-            elif prev_wikitext != '' and curr_wikitext == '':
-                lists = prev_wikicode.filter_tags(matches=lambda node: node.tag in LIST_TAGS, recursive=False)
-                if len(lists) > 0:
-                    return True, 'List'
-            elif prev_wikitext == '' and curr_wikitext != '':
-                lists = curr_wikicode.filter_tags(matches=lambda node: node.tag in LIST_TAGS, recursive=False)
-                if len(lists) > 0:
-                    return True, 'List'
-
-        elif node_type == 'Table Element':
-            if prev_wikitext != '' and curr_wikitext != '':
-                # Check if a table element changes
-                prev_table = prev_wikicode.filter_tags(matches=lambda node: node.tag in TABLE_ELEMENTS_TAGS, recursive=False)
-                curr_table = curr_wikicode.filter_tags(matches=lambda node: node.tag in TABLE_ELEMENTS_TAGS, recursive=False)
-                if len(prev_table) > 0 and len(curr_table) > 0:
-                    if prev_table[0].contents != curr_table[0].contents:
-                        return True, 'Table Element'
-            elif prev_wikitext != '' and curr_wikitext == '':
-                table_elems = prev_wikicode.filter_tags(matches=lambda node: node.tag in TABLE_ELEMENTS_TAGS, recursive=False)
-                if len(table_elems) > 0:
-                    return True, 'Table Element'
-            elif prev_wikitext == '' and curr_wikitext != '':
-                table_elems = curr_wikicode.filter_tags(matches=lambda node: node.tag in TABLE_ELEMENTS_TAGS, recursive=False)
-                if len(table_elems) > 0:
-                    return True, 'Table Element'
+            # check if list type changed
+            prev_tag = str(prev_wc.tag) if prev_wc else None
+            curr_tag = str(curr_wc.tag) if curr_wc else None
+            if prev_tag != curr_tag:
+                changes.append(('list item', prev_tag, curr_tag))
 
         elif node_type == 'Gallery':
-            # Check if a gallery changes
-            if prev_wikitext != '' and curr_wikitext != '':
-                prev_gallery = prev_wikicode.filter_tags(matches=lambda node: node.tag == 'gallery', recursive=False)
-                curr_gallery = curr_wikicode.filter_tags(matches=lambda node: node.tag == 'gallery', recursive=False)
-                if len(prev_gallery) > 0 and len(curr_gallery) > 0:
-                    if prev_gallery[0].contents != curr_gallery[0].contents:
-                        return True, 'Gallery'
-            elif prev_wikitext != '' and curr_wikitext == '':
-                gallery = prev_wikicode.filter_tags(matches=lambda node: node.tag == 'gallery', recursive=False)
-                if len(gallery) > 0:
-                    return True, 'Gallery'
-            elif prev_wikitext == '' and curr_wikitext != '':
-                gallery = curr_wikicode.filter_tags(matches=lambda node: node.tag == 'gallery', recursive=False)
-                if len(gallery) > 0:
-                    return True, 'Gallery'
-            
-        elif 'Tag' in node_type:
-            # Check if a tag changes
-            if prev_wikitext != '' and curr_wikitext != '':
-                prev_tag = prev_wikicode.filter_tags(recursive=False)
-                curr_tag = curr_wikicode.filter_tags(recursive=False)
-                if len(prev_tag) > 0 and len(curr_tag) > 0:
-                    if prev_tag[0].contents != curr_tag[0].contents:
-                        return True, node_type
-            elif prev_wikitext != '' and curr_wikitext == '':
-                tags = prev_wikicode.filter_tags(recursive=False)
-                if len(tags) > 0:
-                    return True, node_type
-            elif prev_wikitext == '' and curr_wikitext != '':
-                tags = curr_wikicode.filter_tags(recursive=False)
-                if len(tags) > 0:
-                    return True, node_type
+            # Ignore contents changes as they should be captured my media changes
+            pr_attrs = {str(a.name).strip(): str(a.value).strip() for a in prev_wc.attributes} if prev_wc else {}
+            cr_attrs = {str(a.name).strip(): str(a.value).strip() for a in curr_wc.attributes} if curr_wc else {}
+            attrs = set(pr_attrs).union(set(cr_attrs))
+            for a in attrs:
+                if pr_attrs.get(a) != cr_attrs.get(a):
+                    changes.append(('attribute',
+                                    (a, pr_attrs[a]) if a in pr_attrs else None,
+                                    (a, cr_attrs[a]) if a in cr_attrs else None))
 
         elif node_type == 'Heading':
-            if prev_wikitext != '' and curr_wikitext != '':
-                prev_heading = prev_wikicode.filter_headings(recursive=False)[0]
-                curr_heading = curr_wikicode.filter_headings(recursive=False)[0]
-                if prev_heading.title != curr_heading.title:
-                    return True, 'Heading'
-            elif prev_wikitext != '' and curr_wikitext == '':
-                section = prev_wikicode.filter_headings(recursive=False)
-                if len(section) > 0:
-                    return True, 'Heading'
-            elif prev_wikitext == '' and curr_wikitext != '':
-                section = curr_wikicode.filter_headings(recursive=False)
-                if len(section) > 0:
-                    return True, 'Heading'
+            # separate between level and title changes
+            ph_level = prev_wc.level if prev_wc else None
+            ch_level = curr_wc.level if curr_wc else None
+            if ph_level != ch_level:
+                changes.append(('level', ph_level, ch_level))
+            ph_title = prev_wc.title.strip() if prev_wc else None
+            ch_title = curr_wc.title.strip() if curr_wc else None
+            name = ph_title if ph_title else ch_title
+            if ph_title != ch_title:
+                changes.append(('title', ph_title, ch_title))
 
         elif node_type == 'Comment':
-            if prev_wikitext != '' and curr_wikitext != '':
-                prev_comment = prev_wikicode.filter_comments(recursive=False)[0]
-                curr_comment = curr_wikicode.filter_comments(recursive=False)[0]
-                if prev_comment.contents != curr_comment.contents:
-                    return True, 'Comment'
-            elif prev_wikitext != '' and curr_wikitext == '':
-                comments = prev_wikicode.filter_comments(recursive=False)
-                if len(comments) > 0:
-                    return True, 'Comment'
-            elif prev_wikitext == '' and curr_wikitext != '':
-                comments = curr_wikicode.filter_comments(recursive=False)
-                if len(comments) > 0:
-                    return True, 'Comment'
+            # check if comment contents changed
+            pc_contents = prev_wc.contents.strip() if prev_wc else None
+            cc_contents = curr_wc.contents.strip() if curr_wc else None
+            if pc_contents != cc_contents:
+                changes.append(('comment', pc_contents, cc_contents))
 
         elif node_type == 'External Link':
-            if prev_wikitext != '' and curr_wikitext != '':
-                prev_external_link = prev_wikicode.filter_external_links(recursive=False)[0]
-                curr_external_link = curr_wikicode.filter_external_links(recursive=False)[0]
-                if prev_external_link.title != curr_external_link.title or prev_external_link.url != curr_external_link.url:
-                    return True, 'External Link'
-            elif prev_wikitext != '' and curr_wikitext == '':
-                external_links = prev_wikicode.filter_external_links(recursive=False)
-                if len(external_links) > 0:
-                    return True, 'External Link'
-            elif prev_wikitext == '' and curr_wikitext != '':
-                external_links = curr_wikicode.filter_external_links(recursive=False)
-                if len(external_links) > 0:
-                    return True, 'External Link'
-        else:
-            return True, node_type
+            # separate between url and text (display) changes
+            pe_url = prev_wc.url if prev_wc else None
+            ce_url = curr_wc.url if curr_wc else None
+            name = pe_url if pe_url else ce_url
+            if pe_url != ce_url:
+                changes.append(('url', pe_url, ce_url))
+
+            pl_display = prev_wc.title.strip() if prev_wc else None
+            cl_display = curr_wc.title.strip() if curr_wc else None
+            if pl_display != cl_display:
+                changes.append(('text', pl_display, cl_display))
     except Exception:
         pass
-    return False, None
+    return name, changes
 
 
 def get_diff_count(result, lang='en'):
-    """ Gets the edit type count of a diff
+    """Prepares more complete edit type summary based on tree diff result.
 
     Parameters
     ----------
     result : dict
-        The diff API response containing inserts,removes and changes made in a Wikipedia revision.
+        The tree diff result containing inserts, removes, changes, and moves made in a Wikipedia revision.
     lang : string
         The language edition associated with the diff. Necessary for parsing text changes correctly.
     Returns
     -------
     dict
-        a dict containing a count of edit type occurrence
+        a dict containing each occurrence of a change
     """
 
-    edit_types = {}
+    node_edits = []
+    text_edits = []
+    context = []
     section_titles = set()
     prev_text = []
     curr_text = []
-    # loop through all removed nodes
+
+    # go through each type of action (insert, remove, change, move) and compute edit types
     for r in result['remove']:
         text = r['text']  # wikitext of the node
+        et = r['type']
+        section_titles.add(r['section'])
         # if node is text, just check whether there's anything and retain for later
         # because all the text is processed at once at the end
-        if r['type'] == 'Text' and text:
+        if et == 'Text' and text:
             prev_text.append(text)
-            section_titles.add(r['section'])
         # non-text node: verify/fine-tune the edit type and add to results dictionary
         else:
-            is_edit_type_found, edit_type = is_change_in_edit_type(r['type'], text, '')
-            if is_edit_type_found:
-                section_titles.add(r['section'])
-                if edit_types.get(edit_type, {}):
-                    edit_types[edit_type]['remove'] = edit_types[edit_type].get('remove', 0) + 1
-                else:
-                    edit_types[edit_type] = {'remove': 1}
-
+            name, changes = get_node_diff(node_type=et, prev_wikitext=text, curr_wikitext='', lang=lang)
+            node_edits.append(NodeEdit(et, 'remove', r['section'], name, changes))
     for i in result['insert']:
         text = i['text']
-        if i['type'] == 'Text' and text:
+        et = i['type']
+        section_titles.add(i['section'])
+        if et == 'Text' and text:
             curr_text.append(text)
-            section_titles.add(i['section'])
         else:
-            is_edit_type_found, edit_type = is_change_in_edit_type(i['type'], '', text)
-            # check if edit_type in edit types dictionary
-            if is_edit_type_found:
-                section_titles.add(i['section'])
-                if edit_types.get(edit_type, {}):
-                    edit_types[edit_type]['insert'] = edit_types[edit_type].get('insert', 0) + 1
-                else:
-                    edit_types[edit_type] = {'insert': 1}
-
+            name, changes = get_node_diff(node_type=et, prev_wikitext='', curr_wikitext=text, lang=lang)
+            node_edits.append(NodeEdit(et, 'insert', i['section'], name, changes))
     for c in result['change']:
-        if c['prev']['type'] == c['curr']['type']:
-            if c['prev']['type'] == 'Text' and c['prev']['text'] != c['curr']['text']:
-                prev_text.append(c['prev']['text'])
-                curr_text.append(c['curr']['text'])
-                section_titles.add(c['curr']['section'])
-                section_titles.add(c['prev']['section'])
-            else:
-                is_edit_type_found, edit_type = is_change_in_edit_type(c['prev']['type'], c['prev']['text'], c['curr']['text'])
-                # check if edit_type in edit types dictionary
-                if is_edit_type_found:
-                    section_titles.add(c['curr']['section'])
-                    section_titles.add(c['prev']['section'])
-                    if edit_types.get(edit_type, {}):
-                        edit_types[edit_type]['change'] = edit_types[edit_type].get('change', 0) + 1
-                    else:
-                        edit_types[edit_type] = {'change': 1}
-
+        et = c['prev']['type']
+        ptext = c['prev']['text']
+        ctext = c['curr']['text']
+        section_titles.add(c['curr']['section'])
+        section_titles.add(c['prev']['section'])
+        if et == 'Text' and ptext != ctext:
+            prev_text.append(ptext)
+            curr_text.append(ctext)
+        else:
+            # edge-case where text formatting changes might just be the inner text
+            # but we're only interested in counting it if the formatting tags themselves changed
+            # e.g., '''Text''' -> ''Text'' but not '''Text''' -> '''Different text'''
+            if et == 'Text Formatting':
+                if mw.parse(ptext).nodes[0].tag == mw.parse(ctext).nodes[0].tag:
+                    continue
+            name, changes = get_node_diff(node_type=et, prev_wikitext=ptext, curr_wikitext=ctext, lang=lang)
+            node_edits.append(NodeEdit(et, 'change', c['prev']['section'], name, changes))
     for m in result['move']:
-        text = m['prev']['text']
-        is_edit_type_found, edit_type = is_change_in_edit_type(m['prev']['type'], text, '')
-        # check if edit_type in edit types dictionary
-        if is_edit_type_found:
-            section_titles.add(m['curr']['section'])
-            section_titles.add(m['prev']['section'])
-            if edit_types.get(edit_type, {}):
-                edit_types[edit_type]['move'] = edit_types[edit_type].get('move', 0) + 1
-            else:
-                edit_types[edit_type] = {'move': 1}
+        et = m['prev']['type']
+        ptext = m['prev']['text']
+        ctext = m['curr']['text']
+        section_titles.add(m['curr']['section'])
+        section_titles.add(m['prev']['section'])
+        name, changes = get_node_diff(node_type=et, prev_wikitext=ptext, curr_wikitext=ctext, lang=lang)
+        node_edits.append(NodeEdit(et, 'move', m['prev']['section'], name, changes))
 
-    # join together all the changed section text and process
+    # give raw insert/remove counts
+    # changes can be assumed to be overlap between insert+remove -- e.g., 5 insert and 3 remove -> 3 change, 2 insert
+    # but would require more work to align well enough to know where words were likely changed vs. inserted/removed
     if prev_text or curr_text:
-        is_text_change_found = parse_change_text(''.join(prev_text), ''.join(curr_text), lang=lang)
+        is_text_change_found = parse_change_text(''.join(prev_text), ''.join(curr_text), lang=lang, summarize=False)
         if is_text_change_found:
             for text_subcat, text_et in is_text_change_found.items():
-                edit_types[text_subcat] = {}
-                for et, et_count in text_et.items():
-                    edit_types[text_subcat][et] = edit_types[text_subcat].get(et, 0) + et_count
-    
+                for txt, et_count in text_et.items():
+                    if et_count > 0:
+                        text_edits.append(TextEdit(text_subcat, 'insert', txt, et_count))
+                    elif et_count < 0:
+                        text_edits.append(TextEdit(text_subcat, 'remove', txt, abs(et_count)))
+
+    # identify how many sections have been edited based on a few heuristics
     if section_titles:
-        if 'Section' not in edit_types:
-            edit_types['Section'] = {}
-        sec_remove = edit_types.get('Heading', {}).get('remove', 0)
-        sec_insert = edit_types.get('Heading', {}).get('insert', 0) + int('prev-no-content' in result)
+        sec_remove = sum([1 for n in node_edits if n.type == 'Heading' and n.edittype == 'remove']) + int('curr-no-content' in result)
+        sec_insert = sum([1 for n in node_edits if n.type == 'Heading' and n.edittype == 'insert']) + int('prev-no-content' in result)
         sec_change = len(section_titles) - sec_remove - sec_insert
         if sec_remove:
-            edit_types['Section']['remove'] = sec_remove
+            context.append(Context('Section', 'remove', sec_remove))
         if sec_insert:
-            edit_types['Section']['insert'] = sec_insert
+            context.append(Context('Section', 'insert', sec_insert))
         if sec_change:
-            edit_types['Section']['change'] = sec_change
-    return edit_types
+            context.append(Context('Section', 'change', sec_change))
+
+    return {'node-edits': node_edits, 'text-edits': text_edits, 'context': context}

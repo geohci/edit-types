@@ -2,8 +2,9 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from mwedittypes.mwedittypes import EditTypes, SimpleEditTypes
+from mwedittypes.mwedittypes import StructuredEditTypes, SimpleEditTypes
 from mwedittypes.tokenizer import parse_change_text
+from mwedittypes.utils import full_diff_to_simple
 
 # Basic wikitext to play with that has most of the things we're interested in (image, categories, templates, etc.)
 # Source: https://en.wikipedia.org/wiki/Karl_Aigen
