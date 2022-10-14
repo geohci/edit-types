@@ -8,11 +8,11 @@ from mwedittypes.utils import *
 
 
 # equivalent of main function
-def get_diff(prev_wikitext, curr_wikitext, lang='en', timeout=2):
+def get_diff(prev_wikitext, curr_wikitext, lang='en'):
     """Run through full process of getting diff between two wikitext revisions."""
     prev_tree = WikitextBag(wikitext=prev_wikitext, lang=lang)
     curr_tree = WikitextBag(wikitext=curr_wikitext, lang=lang)
-    d = Differ(prev_tree, curr_tree, timeout=timeout)
+    d = Differ(prev_tree, curr_tree)
     result = d.count_actions()
     return result
 
@@ -72,7 +72,7 @@ class Node:
                 # media w/o bracket will be IDed as text by mwparserfromhell
                 # templates / galleries are where we find this nested media
                 if self.ntype == 'Template' or self.ntype == 'Gallery':
-                    media = find_nested_media(str(nn))
+                    media = find_nested_media(str(nn), is_gallery=self.ntype=='Gallery')
                     for m in media:
                         nn_node = Node(f'Media: {m[:10]}...',
                                        ntype='Media',
@@ -140,8 +140,7 @@ class Differ:
     Find structural differences between two WikitextBags
     """
 
-    def __init__(self, t1, t2, timeout=2, expand_nodes=True):
-        self.timeout = time.time() + timeout
+    def __init__(self, t1, t2, expand_nodes=True):
         self.t1 = t1
         self.t2 = t2
         self.diff(expand_nodes=expand_nodes)
@@ -149,7 +148,7 @@ class Differ:
     def diff(self, expand_nodes=True):
         # first pass on high-level nodes to prune down to just the ones that changed
         self.sym_diff()
-        if expand_nodes and time.time() < self.timeout:
+        if expand_nodes:
             # expand out changed nodes and re-diff
             self.t1.expand_nested()
             self.t2.expand_nested()
