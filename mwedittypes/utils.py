@@ -35,7 +35,7 @@ def simple_node_class(mwnode, lang='en'):
                 return 'Comment'
             # any others I missed -- e.g., div, meta, etc.
             else:
-                return tag_type.capitalize() + ' Tag'
+                return 'Other Tag'
         return nc
 
 
