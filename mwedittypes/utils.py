@@ -1,4 +1,5 @@
 # helper functions for handling mwparserfromhell / wikitext
+from mwconstants.constants.c_media import DEF_OPTION_TAGS, IMG_OPTION_ALIASES
 import mwparserfromhell as mw
 
 from mwedittypes.constants import *
@@ -17,7 +18,7 @@ def simple_node_class(mwnode, lang='en'):
             elif n_prefix in [c.lower() for c in CAT_PREFIXES + CAT_ALIASES.get(lang, [])]:
                 nc = 'Category'
         elif nc == 'Tag':
-            tag_type = str(mwnode.tag)
+            tag_type = str(mwnode.tag).lower()
             if tag_type in TEXT_FORMATTING_TAGS:
                 return 'Text Formatting'
             elif tag_type in LIST_TAGS:

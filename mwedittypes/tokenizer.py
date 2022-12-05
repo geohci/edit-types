@@ -2,7 +2,9 @@ from collections import Counter
 import re
 import string
 
-from mwedittypes.constants import ENGLISH_UNICODE, NON_ENGLISH_UNICODE, NON_WHITESPACE_LANGUAGES, SENTENCE_BREAKS_REGEX
+from mwconstants import NON_WHITESPACE_LANGUAGES
+
+from mwedittypes.constants import ENGLISH_UNICODE, NON_ENGLISH_UNICODE, SENTENCE_BREAKS_REGEX
 
 
 class Tokenizer:
