@@ -7,7 +7,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 with codecs.open(os.path.join(here, "README.md"), encoding="utf-8") as fh:
     long_description = "\n" + fh.read()
 
-VERSION = '2.0.0'
+VERSION = '2.0.1'
 DESCRIPTION = 'Edit diffs and type detection for Wikipedia'
 LONG_DESCRIPTION = 'A package that allows edit diffs and type detection for Wikipedia.'
 
@@ -32,7 +32,7 @@ setup(
     long_description_content_type="text/markdown",
     long_description=long_description,
     packages=find_packages(),
-    install_requires=['mwparserfromhell', 'anytree'],
+    install_requires=['mwparserfromhell', 'anytree', 'mwconstants'],
     keywords=['python', 'wikipedia', 'edit types', 'edit diffs', 'wiki', 'edit detection'],
     classifiers=[
         "Development Status :: 4 - Beta",

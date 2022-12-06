@@ -1,10 +1,7 @@
-import time
-
 import mwparserfromhell as mw
 
-from mwedittypes.constants import *
-from mwedittypes.tokenizer import *
-from mwedittypes.utils import *
+from mwedittypes.tokenizer import parse_change_text
+from mwedittypes.utils import extract_text, find_nested_media, node_to_name, sec_to_name, simple_node_class
 
 
 # equivalent of main function
@@ -22,7 +19,7 @@ class Node:
     Basic object for wrapping mwparserfromhell wikitext nodes
     """
 
-    def __init__(self, name, ntype='Text', text_hash=None, text='', section=None):
+    def __init__(self, name, ntype='Text', text_hash=None, text='', section=None, mwnode=None):
         self.name = name  # For debugging purposes
         self.ntype = ntype  # Type of node for result
         self.text = str(text)  # Text that is needed if unnesting the node
@@ -37,6 +34,12 @@ class Node:
         else:
             self.text_hash = hash(str(text_hash))
         self.section = section  # section that the node is a part of -- useful for formatting final diff
+        # store tag name (primarily for text formatting) as context matters and
+        # re-parsing in isolation might change the node type
+        try:
+            self.tag = str(mwnode.tag)
+        except AttributeError:
+            self.tag = None
 
     def unnest(self, lang='en'):
         """Expand a node to also include all of its subnodes.
@@ -72,7 +75,7 @@ class Node:
                 # media w/o bracket will be IDed as text by mwparserfromhell
                 # templates / galleries are where we find this nested media
                 if self.ntype == 'Template' or self.ntype == 'Gallery':
-                    media = find_nested_media(str(nn), is_gallery=self.ntype=='Gallery')
+                    media = find_nested_media(str(nn), is_gallery=(self.ntype == 'Gallery'))
                     for m in media:
                         nn_node = Node(f'Media: {m[:10]}...',
                                        ntype='Media',
@@ -86,7 +89,7 @@ class Node:
             elif ntype == 'Table Element':
                 pass
             else:
-                nn_node = Node(node_to_name(nn, lang=lang), ntype=ntype, text=nn, section=self.section)
+                nn_node = Node(node_to_name(nn, lang=lang), ntype=ntype, text=nn, section=self.section, mwnode=nn)
                 nodes.append(nn_node)
         return nodes
 
@@ -118,7 +121,7 @@ class WikitextBag:
                 for n in s.nodes:  # this is just top-level of nodes so e.g., table but not all the table rows etc.
                     ntype = simple_node_class(n, self.lang)
                     if ntype != 'Text':
-                        n_node = Node(node_to_name(n, self.lang), ntype=ntype, text=n, section=s_node.name)
+                        n_node = Node(node_to_name(n, self.lang), ntype=ntype, text=n, section=s_node.name, mwnode=n)
                         self.nodes[n_node.text_hash] = self.nodes.get(n_node.text_hash, []) + [n_node]
 
     def expand_nested(self):
@@ -152,28 +155,6 @@ class Differ:
             # expand out changed nodes and re-diff
             self.t1.expand_nested()
             self.t2.expand_nested()
-            # for second pass, we change text formatting to be hashes of the formatting type and not the text within
-            # if we do this from the start, we'll miss nested changes but at this point we only want to keep the
-            # text formatting changes if e.g., it goes from bold -> italics but content within the formatting
-            # are now represented by their own nodes
-            to_move = []
-            for n_hash in self.t1.nodes:
-                for nidx in range(len(self.t1.nodes[n_hash])-1, -1, -1):
-                    n = self.t1.nodes[n_hash][nidx]
-                    if n.ntype == 'Text Formatting':
-                        n.text_hash = hash(str(mw.parse(n.text).nodes[0].tag))
-                        to_move.append(self.t1.nodes[n_hash].pop(nidx))
-            for n in to_move:
-                self.t1.nodes[n.text_hash] = self.t1.nodes.get(n.text_hash, []) + [n]
-            to_move = []
-            for n_hash in self.t2.nodes:
-                for nidx in range(len(self.t2.nodes[n_hash])-1, -1, -1):
-                    n = self.t2.nodes[n_hash][nidx]
-                    if n.ntype == 'Text Formatting':
-                        n.text_hash = hash(str(mw.parse(n.text).nodes[0].tag))
-                        to_move.append(self.t2.nodes[n_hash].pop(nidx))
-            for n in to_move:
-                self.t2.nodes[n.text_hash] = self.t2.nodes.get(n.text_hash, []) + [n]
             self.sym_diff()
 
     def sym_diff(self):

@@ -37,7 +37,7 @@ def test_reorder_text():
     assert full_diff_to_simple(full_diff) == expected_changes
 
 
-# validate text formatting changes only recorded when the type of formatting changes not the text within
+# validate text formatting changes both when type and inner content changes
 # note ''Fischmarkt'' is part of an image, which is why this isn't recorded as a word change too.
 def test_text_from_formatting():
     curr_wikitext = prev_wikitext.replace("''Fischmarkt''",
@@ -46,7 +46,7 @@ def test_text_from_formatting():
     curr_wikitext = curr_wikitext.replace("'''Karl Josef Aigen'''",
                                           "''Karl Josef Aigen''",
                                           1)
-    expected_changes = {'Text Formatting': {'change': 1},
+    expected_changes = {'Text Formatting': {'change': 2},
                         'Section': {'change': 2}, 'Media': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert diff == expected_changes
@@ -66,6 +66,18 @@ def test_text_within_formatting():
     assert diff == expected_changes
     full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert full_diff_to_simple(full_diff) == expected_changes
+
+
+def test_change_formatting_length():
+    curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen''' (8 October 1684 – 22 October 1762) was a landscape painter, born at",
+                                          "'''Karl Josef Aigen (8 October 1684 – 22 October 1762) was a landscape painter, born at'''",
+                                          1)
+    expected_changes = {'Section': {'change': 1}, 'Text Formatting': {'change': 1}}
+    diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
+    assert diff == expected_changes
+    full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en')
+    diff = full_diff.get_diff()
+    assert full_diff_to_simple(diff) == expected_changes
 
 
 def test_text_from_link():
@@ -189,7 +201,7 @@ def test_link_within_formatting():
     curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen'''",
                                           "'''[[Karl Josef Aigen]]'''",
                                           1)
-    expected_changes = {'Wikilink': {'insert': 1}, 'Section': {'change': 1}}
+    expected_changes = {'Wikilink': {'insert': 1}, 'Section': {'change': 1}, 'Text Formatting': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert diff == expected_changes
     full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()

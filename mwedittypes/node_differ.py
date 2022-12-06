@@ -190,12 +190,25 @@ def get_node_diff(node_type, prev_wikitext='', curr_wikitext='', lang='en'):
                 changes.append(('cells', 'change', changed))
 
         elif node_type == 'Text Formatting':
-            # check if format type changed
+            # check if format type / contents changed
             # Note this will skip '''text''' -> <b>text</b> which are both `b` tags (same for italics)
             prev_tag = str(prev_wc.tag) if prev_wc else None
             curr_tag = str(curr_wc.tag) if curr_wc else None
             if prev_tag != curr_tag:
                 changes.append(('format tag', prev_tag, curr_tag))
+            prev_contents = str(prev_wc.contents) if prev_wc else None
+            curr_contents = str(curr_wc.contents) if curr_wc else None
+            if prev_contents != curr_contents:
+                changes.append(('contents', prev_contents, curr_contents))
+
+        elif node_type == 'HTMLEntity':
+            # check if display value of the HTMLEntity has changed
+            # This will ignore code differences that don't affect output
+            # e.g., '&Delta;' vs. '&#916;' vs. '&#x0394;' are all the equivalent of 'Δ'
+            prev_ent = prev_wc.normalize() if prev_wc else None
+            curr_ent = curr_wc.normalize() if curr_wc else None
+            if prev_ent != curr_ent:
+                changes.append(('display-value', prev_ent, curr_ent))
 
         elif node_type == 'List':
             # check if list type changed
@@ -265,7 +278,6 @@ def get_diff_count(result, lang='en'):
     dict
         a dict containing each occurrence of a change
     """
-
     node_edits = []
     text_edits = []
     context = []
@@ -305,12 +317,6 @@ def get_diff_count(result, lang='en'):
             prev_text.append(ptext)
             curr_text.append(ctext)
         else:
-            # edge-case where text formatting changes might just be the inner text
-            # but we're only interested in counting it if the formatting tags themselves changed
-            # e.g., '''Text''' -> ''Text'' but not '''Text''' -> '''Different text'''
-            if et == 'Text Formatting':
-                if mw.parse(ptext).nodes[0].tag == mw.parse(ctext).nodes[0].tag:
-                    continue
             name, changes = get_node_diff(node_type=et, prev_wikitext=ptext, curr_wikitext=ctext, lang=lang)
             node_edits.append(NodeEdit(et, 'change', c['prev']['section'], name, changes))
     for m in result['move']:

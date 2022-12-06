@@ -1,5 +1,3 @@
-import time
-
 from anytree import PostOrderIter, NodeMixin
 from anytree.util import leftsibling
 import mwparserfromhell as mw
