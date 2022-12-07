@@ -106,11 +106,11 @@ def get_node_diff(node_type, prev_wikitext='', curr_wikitext='', lang='en'):
             pr_name = None
             for a in prev_wc.attributes:
                 if a.name == 'name':
-                    pr_name = a.value
+                    pr_name = a.value.strip()
             cr_name = None
             for a in curr_wc.attributes:
                 if a.name == 'name':
-                    cr_name = a.value
+                    cr_name = a.value.strip()
             if pr_name != cr_name:
                 changes.append(('name', pr_name, cr_name))
 
