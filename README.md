@@ -62,7 +62,9 @@ Structured:
 In most cases (~90%), the two approaches agree in their overall results. They differ in the following situations:
 * Very large diffs -- when `timeout` is set to `True`, the StructuredEditTypes class is more likely to fall-back to a simple diff and miss some details as a result
 * Content moves -- the simplified library cannot detect moves
-* Changes vs. Inserts+Removes -- the simplified library does not distinguish between e.g., a template being changed vs. a template being removed and separate template being inserted
+* Changes vs. Inserts+Removes -- the simplified library does not distinguish between e.g., a template being changed vs. a template being removed and separate template being inserted 
+
+A good example of a diff where they vary in outputs is revision 1107840666 on English Wikipedia ([diff](https://en.wikipedia.org/w/index.php?diff=1107840666&oldid=1094519551&title=Blumenthal,_Saskatchewan&diffmode=source); [model output](https://wiki-topic.toolforge.org/diff-tagging?lang=en&revid=1107840666)).
 
 ## Language Coverage
 Almost everything in this library is language-agnostic and so works consistently for any language of Wikipedia.

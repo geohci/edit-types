@@ -106,11 +106,11 @@ def get_node_diff(node_type, prev_wikitext='', curr_wikitext='', lang='en'):
             pr_name = None
             for a in prev_wc.attributes:
                 if a.name == 'name':
-                    pr_name = a.value
+                    pr_name = a.value.strip()
             cr_name = None
             for a in curr_wc.attributes:
                 if a.name == 'name':
-                    cr_name = a.value
+                    cr_name = a.value.strip()
             if pr_name != cr_name:
                 changes.append(('name', pr_name, cr_name))
 
@@ -249,8 +249,8 @@ def get_node_diff(node_type, prev_wikitext='', curr_wikitext='', lang='en'):
 
         elif node_type == 'External Link':
             # separate between url and text (display) changes
-            pe_url = prev_wc.url if prev_wc else None
-            ce_url = curr_wc.url if curr_wc else None
+            pe_url = prev_wc.url.strip() if prev_wc else None
+            ce_url = curr_wc.url.strip() if curr_wc else None
             name = pe_url if pe_url else ce_url
             if pe_url != ce_url:
                 changes.append(('url', pe_url, ce_url))
