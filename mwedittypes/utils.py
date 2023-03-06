@@ -1,5 +1,4 @@
 # helper functions for handling mwparserfromhell / wikitext
-from mwconstants.constants.c_media import DEF_OPTION_TAGS, IMG_OPTION_ALIASES
 import mwparserfromhell as mw
 
 from mwedittypes.constants import *
@@ -123,46 +122,6 @@ def find_nested_media(wikitext, is_gallery=False, max_link_length=240):
                 media_wikitext += media_options
             media.append(media_wikitext.strip())
     return media
-
-
-def parse_image_options(img_options_wikitext, lang='en'):
-    """Identify any formatting options and caption within media file syntax.
-
-    There are a set of allowed keywords/parameters for media formatting that we have fully compiled a list of.
-    Each parameter in a media file is checked against these formatting options and if it does not match,
-    it is assumed to be the caption.
-
-    For more info, see: https://www.mediawiki.org/wiki/Help:Images#Syntax
-    """
-    options = []
-    caption = None
-    if img_options_wikitext:
-        lang_tags = {}
-        for k in DEF_OPTION_TAGS:
-            lang_tags[k] = DEF_OPTION_TAGS[k] + IMG_OPTION_ALIASES.get(lang, {}).get(k, [])
-        for o in img_options_wikitext.split('|'):
-            o = o.strip()
-            if o in lang_tags['keywords']:
-                options.append(o)
-            elif o.split('=')[0] in lang_tags['params']:
-                options.append(o)
-            else:
-                found = False
-                for t in lang_tags['startswith']:
-                    if o.startswith(t):
-                        options.append(o)
-                        found = True
-                        break
-                if not found:
-                    for t in lang_tags['endswith']:
-                        if o.endswith(t):
-                            options.append(o)
-                            found = True
-                            break
-                if not found:
-                    caption = o
-
-    return options, caption
 
 
 def full_diff_to_simple(full_diff):

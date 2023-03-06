@@ -12,8 +12,8 @@ TEXT_FORMATTING_TAGS = ('b', 'i', 's', 'u', 'del', 'ins','hr', 'br','pre', 'nowi
 TABLE_ELEMENTS_TAGS = ('th', 'tr', 'td')
 LIST_TAGS = ('li', 'dt', 'dd', 'ul', 'ol', 'dl')
 
-# CJK period/question/exclamation; Bengali full-stops
-NON_ENGLISH_FULL_STOPS = '。？！।॥'
+# CJK period/question/exclamation; Bengali full-stops; Armenian verǰaket (full-stop; resembles a colon)
+NON_ENGLISH_FULL_STOPS = '。？！।॥։'
 # This regex identifies end-of-sentence punctuation and new-lines as sentence breaks
 # It avoids matching dots between two digits but takes into account ellipses and fullstops.
 # fuller explanation:

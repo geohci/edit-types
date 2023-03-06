@@ -2,7 +2,7 @@ from collections import namedtuple
 import mwparserfromhell as mw
 
 from mwedittypes.tokenizer import parse_change_text
-from mwedittypes.utils import parse_image_options
+from mwconstants.media import parse_image_options
 
 NodeEdit = namedtuple('NodeEdit', ['type', 'edittype', 'section', 'name', 'changes'])
 TextEdit = namedtuple('TextEdit', ['type', 'edittype', 'text', 'count'])
@@ -55,20 +55,14 @@ def get_node_diff(node_type, prev_wikitext='', curr_wikitext='', lang='en'):
             # Brackets: [[File:filename.ext|formatting options|caption]]
             # Template: File:filename.ext
             # Gallery: filename.ext|formatting options|caption
-            # If template or gallery, we add the brackets and re-parse so the title/options can be consistently handled
-            if prev_wikitext and not prev_wikitext.startswith('[['):
-                prev_wc = mw.parse(f'[[{prev_wikitext}]]').nodes[0]
-            if curr_wikitext and not curr_wikitext.startswith('[['):
-                curr_wc = mw.parse(f'[[{curr_wikitext}]]').nodes[0]
-
-            pm_title = prev_wc.title.strip() if prev_wc else None
-            cm_title = curr_wc.title.strip() if curr_wc else None
+            pm_title, pm_caption, pm_options = parse_image_options(prev_wc if prev_wc else '', lang=lang)
+            cm_title, cm_caption, cm_options = parse_image_options(curr_wc if curr_wc else '', lang=lang)
+            # remove leading/trailing whitespace as we don't want it affecting perceived changes
+            pm_title = pm_title.strip() if pm_title else None
+            cm_title = cm_title.strip() if cm_title else None
             name = pm_title if pm_title else cm_title
             if pm_title != cm_title:
                 changes.append(('filename', pm_title, cm_title))
-
-            pm_options, pm_caption = parse_image_options(prev_wc.text.strip() if prev_wc else '', lang=lang)
-            cm_options, cm_caption = parse_image_options(curr_wc.text.strip() if curr_wc else '', lang=lang)
 
             if pm_caption != cm_caption:
                 changes.append(('caption', pm_caption, cm_caption))
@@ -247,7 +241,7 @@ def get_node_diff(node_type, prev_wikitext='', curr_wikitext='', lang='en'):
             if pc_contents != cc_contents:
                 changes.append(('comment', pc_contents, cc_contents))
 
-        elif node_type == 'External Link':
+        elif node_type == 'ExternalLink':
             # separate between url and text (display) changes
             pe_url = prev_wc.url.strip() if prev_wc else None
             ce_url = curr_wc.url.strip() if curr_wc else None
