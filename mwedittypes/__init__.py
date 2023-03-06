@@ -1,4 +1,4 @@
-from .mwedittypes import StructuredEditTypes, SimpleEditTypes
+from .mwedittypes import EditCategories, SimpleEditTypes, StructuredEditTypes
 
 __title__ = "mwedittypes"
 __summary__ = "mwedittypes is a package that supports edit diffs and action detection for Wikipedia"
@@ -8,4 +8,4 @@ __version__ = "2.0.2"
 
 __license__ = "MIT License"
 
-__all__ = ["StructuredEditTypes", "SimpleEditTypes"]
+__all__ = ["EditCategories", "SimpleEditTypes", "StructuredEditTypes"]

@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from mwedittypes.mwedittypes import StructuredEditTypes, SimpleEditTypes
+from mwedittypes.mwedittypes import EditCategories, SimpleEditTypes, StructuredEditTypes
 from mwedittypes.tokenizer import parse_change_text
 from mwedittypes.utils import full_diff_to_simple
 
