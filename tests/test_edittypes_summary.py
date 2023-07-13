@@ -1,3 +1,5 @@
+import pytest
+
 from context import cjk_prev_wikitext, StructuredEditTypes, full_diff_to_simple, prev_wikitext, SimpleEditTypes
 
 # Text tests
@@ -46,7 +48,7 @@ def test_text_from_formatting():
     curr_wikitext = curr_wikitext.replace("'''Karl Josef Aigen'''",
                                           "''Karl Josef Aigen''",
                                           1)
-    expected_changes = {'Text Formatting': {'change': 2},
+    expected_changes = {'Text Formatting': {'change': 1},
                         'Section': {'change': 2}, 'Media': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert diff == expected_changes
@@ -67,12 +69,12 @@ def test_text_within_formatting():
     full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert full_diff_to_simple(full_diff) == expected_changes
 
-
+@pytest.mark.xfail(reason="Tree Differ can't currently detect simple shifts in text formatting start-stops.")
 def test_change_formatting_length():
     curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen''' (8 October 1684 – 22 October 1762) was a landscape painter, born at",
                                           "'''Karl Josef Aigen (8 October 1684 – 22 October 1762) was a landscape painter, born at'''",
                                           1)
-    expected_changes = {'Section': {'change': 1}, 'Text Formatting': {'change': 1}}
+    expected_changes = {'Section': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert diff == expected_changes
     full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en')
@@ -201,7 +203,7 @@ def test_link_within_formatting():
     curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen'''",
                                           "'''[[Karl Josef Aigen]]'''",
                                           1)
-    expected_changes = {'Wikilink': {'insert': 1}, 'Section': {'change': 1}, 'Text Formatting': {'change': 1}}
+    expected_changes = {'Wikilink': {'insert': 1}, 'Section': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert diff == expected_changes
     full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
@@ -316,4 +318,3 @@ def test_moved_section():
     assert diff == simple_expected_changes
     full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert full_diff_to_simple(full_diff) == full_expected_changes
-

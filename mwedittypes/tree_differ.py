@@ -2,17 +2,18 @@ from anytree import PostOrderIter, NodeMixin
 from anytree.util import leftsibling
 import mwparserfromhell as mw
 
-from mwedittypes.utils import find_nested_media, node_to_name, sec_to_name, simple_node_class, wikitext_to_plaintext
+from mwedittypes.utils import (find_nested_media, find_nested_textformatting, node_to_name, sec_to_name,
+                               simple_node_class, wikitext_to_plaintext)
 
 
 # equivalent of main function
-def get_diff(prev_wikitext, curr_wikitext, lang='en', timeout=False, debug=False):
+def get_diff(prev_wikitext, curr_wikitext, lang='en', timeout=False):
     """Run through full process of getting tree diff between two wikitext revisions."""
     # To provide proper structure, need all content to be nested under a section
     prev_tree = WikitextTree(wikitext=prev_wikitext, lang=lang)
     curr_tree = WikitextTree(wikitext=curr_wikitext, lang=lang)
     d = Differ(prev_tree, curr_tree, timeout=timeout)
-    diff = d.get_corresponding_nodes(debug=debug)
+    diff = d.get_corresponding_nodes()
     result = diff.post_process(prev_tree.secname_to_text, curr_tree.secname_to_text, lang=lang)
     # this helps the node differ know that the lede is also a new section
     # otherwise depends on headings to track changes to sections
@@ -28,31 +29,31 @@ class OrderedNode(NodeMixin):
     Extension of anytree library node to support tree differ.
     """
 
-    def __init__(self, name, ntype='Text', text_hash=None, idx=-1, text='', char_offset=-1, section=None,
+    def __init__(self, name, ntype='Text', idx=-1, mwnode=None, section=None,
                  parent=None, children=None):
         super(OrderedNode, self).__init__()
         self.name = name  # For debugging purposes
         self.ntype = ntype  # Different node types can be treated differently when computing equality
-        self.text = str(text)  # Text that can then be passed to a diffing library
+        self.mwnode = mwnode
+        self.text = str(mwnode) if mwnode is not None else ''  # Text that can then be passed to a diffing library
         # Used for quickly computing equality for most nodes.
-        # Generally this just a simple hash of self.text (wikitext associated with a node) but
-        # the text hash for sections and paragraphs is based on all the content within the section/paragraph
-        # so it can be used for pruning while self.text is just the text that creates the section/paragraph
+        # Generally this just a simple hash of self.mwnode (wikitext associated with a node) but
+        # the text hash for sections is based on all the content within the section
+        # so it can be used for pruning while self.text is just the text that creates the section
         # e.g., "==Section==\nThis is a section." would have as text "==Section==" but hash the full.
-        # so the Differ doesn't identify a section/paragraph as changing when content within it is changed
-        if text_hash is None:
-            self.text_hash = hash(self.text)
-        else:
-            self.text_hash = hash(str(text_hash))
+        # so the Differ doesn't identify a section as changing when content within it is changed
+        self.content_hash = hash(self.text)
         self.idx = idx  # Used by Differ -- Post order on tree from 0...# nodes - 1
-        self.char_offset = char_offset  # make it easy to find node in section text
         self.section = section  # section that the node is a part of -- useful for formatting final diff
         self.parent = parent
         if children:
             self.children = children
+        self.leftmostidx = None
 
     def leftmost(self):
-        return self.idx if self.is_leaf else self.children[0].leftmost()
+        if self.leftmostidx is None:
+            self.leftmostidx = self.idx if self.is_leaf else self.children[0].leftmost()
+        return self.leftmostidx
 
     def unnest(self, lang='en'):
         """Build tree of document nodes by recursing within a single wikitext node.
@@ -67,18 +68,16 @@ class OrderedNode(NodeMixin):
         """
         if self.ntype == 'Gallery':
             # strip leading / trailing gallery tags so parser correctly parses everything in between
-            # otherwise links, formatting, etc. is treated as text
+            # otherwise links, templates, etc. is treated as text
             gallery_start = self.text.find('>')
             gallery_end = self.text.rfind('<')
             try:
                 # the break is a hack; it'll be skipped in the ifilter loop; otherwise first image skipped
-                wt = mw.parse('<br>' + self.text[gallery_start+1:gallery_end])
+                wt = mw.parse('<br>' + self.text[gallery_start+1:gallery_end], skip_style_tags=True)
             except Exception:  # fallback
-                wt = mw.parse(self.text)
+                wt = mw.parse(self.mwnode)  # automatically carries over skip_style_tags
         else:
-            wt = mw.parse(self.text)
-        parent_node = self
-        base_offset = self.char_offset
+            wt = mw.parse(self.mwnode)  # automatically carries over skip_style_tags
         parent_ranges = [(0, len(self.text), self)]  # (start idx of node, end idx of node, node object)
         for idx, nn in enumerate(wt.ifilter(recursive=True)):
             if idx == 0:
@@ -87,15 +86,16 @@ class OrderedNode(NodeMixin):
             if ntype == 'Text':
                 # media w/o bracket will be IDed as text by mwparserfromhell
                 # templates / galleries are where we find this nested media
+                # any discovered media will just be the start and aren't guaranteed to be the whole image + caption etc.
                 if self.ntype == 'Template' or self.ntype == 'Gallery':
-                    media = find_nested_media(str(nn), is_gallery=(self.ntype == 'Gallery'))
-                    for m in media:
+                    for m in find_nested_media(str(nn), is_gallery=(self.ntype == 'Gallery')):
                         nn_node = OrderedNode(f'Media: {m[:10]}...',
                                               ntype='Media',
-                                              text=m,
-                                              char_offset=base_offset + self.text.find(str(m), parent_ranges[0][0]),
+                                              mwnode=m,
                                               section=self.section,
                                               parent=self)
+                        offset = self.text.find(str(m), parent_ranges[0][0])
+                        parent_ranges.insert(0, (offset, offset + len(m), nn_node))
             # tables are very highly-structured and produce a ton of nodes (each cell and more)
             # so we just extract links, formatting, etc. that appears in the table and skip the cells
             # because changes to those will generally be caught in the overall table changes and text changes
@@ -106,24 +106,27 @@ class OrderedNode(NodeMixin):
                 # start looking from the start of the latest node
                 node_start = self.text.find(str(nn), parent_ranges[0][0])
                 # identify direct parent of node
-                for parent in parent_ranges:
-                    if node_start < parent[1]:  # falls within parent range
-                        parent_node = parent[2]
+                for parent_start, parent_end, parent_node in parent_ranges:
+                    if node_start < parent_end:  # starts before end of a previous node; already know it begins after it
+                        nn_node = OrderedNode(node_to_name(nn, lang=lang), ntype=ntype, mwnode=nn,
+                                              section=self.section, parent=parent_node)
+                        parent_ranges.insert(0, (node_start, node_start + len(nn), nn_node))
                         break
-                nn_node = OrderedNode(node_to_name(nn, lang=lang), ntype=ntype, text=nn,
-                                      char_offset=base_offset + node_start,
-                                      section=self.section, parent=parent_node)
-                parent_ranges.insert(0, (node_start, node_start + len(nn), nn_node))
+        if "''" in self.text:
+            for tfnode, tfspan in find_nested_textformatting(self.text):
+                for parent_start, parent_end, parent_node in parent_ranges:
+                    if tfspan[0] >= parent_start and tfspan[1] <= parent_end:
+                        nn_node = OrderedNode(f'Text-Formatting: {tfnode}',
+                                              ntype='Text Formatting',
+                                              mwnode=tfnode,
+                                              section=self.section,
+                                              parent=parent_node)
+                        break
 
-    def dump(self, debug=False):
-        result = {'type': self.ntype,
-                  'text': self.text,
-                  'section': self.section}
-        if debug:
-            result['name'] = self.name
-            result['offset'] = self.char_offset
-        return result
-
+    def dump(self):
+        return {'type': self.ntype,
+                'text': self.text,
+                'section': self.section}
 
 class WikitextTree:
     """
@@ -135,6 +138,7 @@ class WikitextTree:
         self.root = OrderedNode('root', ntype="Article")
         self.secname_to_text = {}
         self.wikitext_to_tree(wikitext)
+        self.key_roots = None
 
     def wikitext_to_tree(self, wikitext):
         """Build tree of document nodes from Wikipedia article.
@@ -143,31 +147,20 @@ class WikitextTree:
         all of the article sections nested flatly underneath (including the Lede section),
         and all of the text, link, template, etc. nodes nested under their respective sections.
         """
-        wt = mw.parse(wikitext)
+        wt = mw.parse(wikitext, skip_style_tags=True)
         for sidx, s in enumerate(wt.get_sections(flat=True)):
-            if s:
-                sec_hash = sec_to_name(s, sidx)
-                sec_text = ''.join([str(n) for n in s.nodes])
-                self.secname_to_text[sec_hash] = sec_text
-                s_node = OrderedNode(sec_hash, ntype="Section", text=s.nodes[0], text_hash=sec_text, char_offset=0,
-                                     section=sec_hash, parent=self.root)
-                char_offset = 0
-                for n in s.nodes:
-                    n_node = OrderedNode(node_to_name(n, self.lang), ntype=simple_node_class(n, self.lang), text=n,
-                                         char_offset=char_offset, section=s_node.name, parent=s_node)
-                    char_offset += len(str(n))
-            # empty lede
-            else:
-                sec_hash = sec_to_name(s, sidx)
-                sec_text = ''
-                self.secname_to_text[sec_hash] = sec_text
-                s_node = OrderedNode(sec_hash, ntype="Section", text=sec_text, text_hash=sec_text, char_offset=0,
-                                     section=sec_hash, parent=self.root)
+            sec_id = sec_to_name(s, sidx)
+            sec_text = ''.join([str(n) for n in s.nodes])
+            self.secname_to_text[sec_id] = sec_text
+            s_node = OrderedNode(sec_id, ntype="Section", mwnode=s, section=sec_id, parent=self.root)
+            for n in s.nodes:
+                n_node = OrderedNode(node_to_name(n, self.lang), ntype=simple_node_class(n, self.lang), mwnode=n,
+                                     section=s_node.name, parent=s_node)
 
     def expand_nested(self):
         """Expand nested nodes in tree -- e.g., Ref tags with templates/links contained in them."""
         for n in PostOrderIter(self.root):
-            if n.ntype not in ('Article', 'Section', 'Heading', 'Text'):  # leaves tag, link, etc.
+            if n.ntype not in ('Article', 'Section'):
                 n.unnest(self.lang)
 
 
@@ -180,13 +173,19 @@ class Differ:
         self.timeout = timeout  # if True, limit size of trees compared
         self.prune_trees(t1, t2, expand_nodes)
         self.t1 = []
+        self.t1_keyroots = []
         self.t2 = []
+        self.t2_keyroots = []
         for i, n in enumerate(PostOrderIter(t1.root)):
             n.idx = i
             self.t1.append(n)
+            if n.is_root or leftsibling(n) is not None:
+                self.t1_keyroots.append(n)
         for i, n in enumerate(PostOrderIter(t2.root)):
             n.idx = i
             self.t2.append(n)
+            if n.is_root or leftsibling(n) is not None:
+                self.t2_keyroots.append(n)
         self.ins_cost = 1
         self.rem_cost = 1
         self.chg_cost = 1
@@ -232,8 +231,8 @@ class Differ:
             self.prune_to_sections(t1, t2)
         # arbitrary: seems like manageable number of total nodes -- unnest fully before diffing
         elif expand_nodes and (not self.timeout or
-                               (sum([len(mw.parse(n.text).filter()) for n in PostOrderIter(t1.root)]) +
-                               sum([len(mw.parse(n.text).filter()) for n in PostOrderIter(t2.root)])) < 1000):
+                               (sum([len(mw.parse(n.mwnode).filter()) for n in PostOrderIter(t1.root)]) +
+                               sum([len(mw.parse(n.mwnode).filter()) for n in PostOrderIter(t2.root)])) < 1000):
             t1.expand_nested()
             t2.expand_nested()
 
@@ -253,29 +252,23 @@ class Differ:
         for secnode1 in t1_sections:
             for sn2_idx in range(len(t2_sections)):
                 secnode2 = t2_sections[sn2_idx]
-                if secnode1.text_hash == secnode2.text_hash:
+                if secnode1.content_hash == secnode2.content_hash:
                     # assumes sections aren't hierarchical in tree
-                    # or if they are, the text_hash must also include nested sections
+                    # or if they are, the content_hash must also include nested sections
                     secnode1.children = []
                     secnode2.children = []
                     t2_sections.pop(sn2_idx)  # only match once
                     break
 
-    def get_key_roots(self, tree):
-        """Get keyroots (node has a left sibling or is the root) of a tree"""
-        for on in tree:
-            if on.is_root or leftsibling(on) is not None:
-                yield on
-
     def populate_transactions(self, transactions):
         """Populate self.transactions with minimum transactions between all possible trees"""
-        for kr1 in self.get_key_roots(self.t1):
+        for kr1 in self.t1_keyroots:
             # Make transactions for tree -> null
             i_nulls = []
             for ii in range(kr1.leftmost(), kr1.idx + 1):
                 i_nulls.append(self.transaction_to_idx[ii][None])
                 transactions[ii][None] = i_nulls.copy()
-            for kr2 in self.get_key_roots(self.t2):
+            for kr2 in self.t2_keyroots:
                 # Make transactions of null -> tree
                 j_nulls = []
                 for jj in range(kr2.leftmost(), kr2.idx + 1):
@@ -308,7 +301,7 @@ class Differ:
         # Use arbitrarily high-value for nodetype changes to effectively ban.
         elif n1.ntype != n2.ntype:
             return self.nodetype_chg_cost
-        elif n1.text_hash == n2.text_hash:
+        elif n1.content_hash == n2.content_hash:
             return 0
         # if both sections, assert no cost (changes will be captured by headings)
         # except we want to detect moves of sections
@@ -405,7 +398,7 @@ class Differ:
                         cc.extend(self.transactions[i][j])
                         transactions[i][j] = cc
 
-    def get_corresponding_nodes(self, debug=False):
+    def get_corresponding_nodes(self):
         """Explain transactions.
 
         Skip 'Section' operations as they aren't real nodes and
@@ -434,8 +427,7 @@ class Differ:
             diff = {'remove': remove, 'insert': insert, 'change': change}
             self.detect_moves(diff)
             return Diff(nodes_removed=diff['remove'], nodes_inserted=diff['insert'],
-                        nodes_changed=diff['change'], nodes_moved=diff['move'],
-                        debug=debug)
+                        nodes_changed=diff['change'], nodes_moved=diff['move'])
         else:
             return Diff(nodes_removed=[], nodes_inserted=[],
                         nodes_changed=[], nodes_moved=[])
@@ -459,7 +451,7 @@ class Differ:
         """
 
         # build list of all prev and curr nodes to compare for matches
-        ntypes_to_ignore = ('Text', 'Text Formatting')
+        ntypes_to_ignore = ('Text', 'Text Formatting', 'List')
         prev_nodes = [('remove', i, pn) for i, pn in enumerate(diff['remove']) if pn.ntype not in ntypes_to_ignore]
         curr_nodes = [('insert', j, cn) for j, cn in enumerate(diff['insert']) if cn.ntype not in ntypes_to_ignore]
         for k in range(len(diff['change'])):
@@ -479,7 +471,7 @@ class Differ:
             for cet, cidx, cn in curr_nodes:
                 cid = f'{cet}-{cidx}'
                 # same type/text and not already part of a move
-                if pn.ntype == cn.ntype and pn.text_hash == cn.text_hash and cid not in curr_found:
+                if pn.ntype == cn.ntype and pn.content_hash == cn.content_hash and cid not in curr_found:
                     prev_moved.append((pet, pidx))
                     curr_moved.append((cet, cidx))
                     curr_found.add(cid)
@@ -522,15 +514,14 @@ class Diff:
     Diff result with helper functions for post-processing / cleaning up the result
     """
 
-    def __init__(self, nodes_removed, nodes_inserted, nodes_changed, nodes_moved, debug=False):
-        self.remove = [n.dump(debug) for n in nodes_removed]
-        self.insert = [n.dump(debug) for n in nodes_inserted]
-        self.change = [{'prev': pn.dump(debug), 'curr': cn.dump(debug)} for pn, cn in nodes_changed]
-        self.move = [{'prev': pn.dump(debug), 'curr': cn.dump(debug)} for pn, cn in nodes_moved]
+    def __init__(self, nodes_removed, nodes_inserted, nodes_changed, nodes_moved):
+        self.remove = [n.dump() for n in nodes_removed]
+        self.insert = [n.dump() for n in nodes_inserted]
+        self.change = [{'prev': pn.dump(), 'curr': cn.dump()} for pn, cn in nodes_changed]
+        self.move = [{'prev': pn.dump(), 'curr': cn.dump()} for pn, cn in nodes_moved]
         self.sections_p_to_c = {}
         self.sections_c_to_p = {}
         self.processed = False
-        self.debug = debug
 
     def post_process(self, sections_prev, sections_curr, lang):
         if not self.processed:
@@ -564,9 +555,6 @@ class Diff:
             sc[csec_id] = sections_curr[csec_name]
 
         self.result = {'remove': self.remove, 'insert': self.insert, 'change': self.change, 'move': self.move}
-        if self.debug:
-            self.result['sections-prev'] = sp
-            self.result['sections-curr'] = sc
 
     def _section_mapping(self, sections_prev, sections_curr):
         """Build mapping of sections between previous and current versions of article."""
