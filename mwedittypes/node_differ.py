@@ -31,8 +31,8 @@ def get_node_diff(node_type, prev_wikitext='', curr_wikitext='', lang='en'):
     name = None
     changes = []
     try:
-        prev_wc = mw.parse(prev_wikitext).nodes[0] if prev_wikitext else None
-        curr_wc = mw.parse(curr_wikitext).nodes[0] if curr_wikitext else None
+        prev_wc = mw.parse(prev_wikitext, skip_style_tags=True).nodes[0] if prev_wikitext else None
+        curr_wc = mw.parse(curr_wikitext, skip_style_tags=True).nodes[0] if curr_wikitext else None
 
         if node_type == 'Template':
             # separate between name changes and parameter changes
@@ -146,7 +146,7 @@ def get_node_diff(node_type, prev_wikitext='', curr_wikitext='', lang='en'):
             pt_caption = None
             pt_cells = {}
             if prev_wc:
-                for te in mw.parse(prev_wikitext).filter_tags():
+                for te in mw.parse(prev_wikitext, skip_style_tags=True).filter_tags():
                     if te.tag == 'td' or te.tag == 'th':
                         if '+' in [a.name for a in te.attributes] or te.contents.startswith('+'):
                             pt_caption = te.contents.lstrip('+')
@@ -157,7 +157,7 @@ def get_node_diff(node_type, prev_wikitext='', curr_wikitext='', lang='en'):
             ct_caption = None
             ct_cells = {}
             if curr_wc:
-                for te in mw.parse(curr_wikitext).filter_tags():
+                for te in mw.parse(curr_wikitext, skip_style_tags=True).filter_tags():
                     if te.tag == 'td' or te.tag == 'th':
                         if '+' in [a.name for a in te.attributes] or te.contents.startswith('+'):
                             ct_caption = te.contents.lstrip('+')
@@ -186,14 +186,12 @@ def get_node_diff(node_type, prev_wikitext='', curr_wikitext='', lang='en'):
         elif node_type == 'Text Formatting':
             # check if format type / contents changed
             # Note this will skip '''text''' -> <b>text</b> which are both `b` tags (same for italics)
-            prev_tag = str(prev_wc.tag) if prev_wc else None
-            curr_tag = str(curr_wc.tag) if curr_wc else None
-            if prev_tag != curr_tag:
-                changes.append(('format tag', prev_tag, curr_tag))
-            prev_contents = str(prev_wc.contents) if prev_wc else None
-            curr_contents = str(curr_wc.contents) if curr_wc else None
-            if prev_contents != curr_contents:
-                changes.append(('contents', prev_contents, curr_contents))
+            if prev_wikitext is not None and '>' in prev_wikitext:
+                prev_wikitext = prev_wikitext[:prev_wikitext.find('>') + 1]
+            if curr_wikitext is not None and '>' in curr_wikitext:
+                curr_wikitext = curr_wikitext[:curr_wikitext.find('>') + 1]
+            if prev_wikitext != curr_wikitext:
+                changes.append(('format tag', prev_wikitext, curr_wikitext))
 
         elif node_type == 'HTMLEntity':
             # check if display value of the HTMLEntity has changed
@@ -280,9 +278,20 @@ def get_diff_count(result, lang='en'):
     curr_text = []
 
     # go through each type of action (insert, remove, change, move) and compute edit types
+    # for text-formatting, the starting tags -- e.g., '' -- are captured independently of the
+    # ending tags. This means that insert/removal/change of a standard block of text-formatting will
+    # trigger two text-formatting changes in the tree differ. To account for that, we essentially skip
+    # every other text-formatting result.
+    tf_removes = set()
     for r in result['remove']:
         text = r['text']  # wikitext of the node
         et = r['type']
+        if et == 'Text Formatting' and text.startswith("'"):
+            if text in tf_removes:  # already added 'start' of text-formatting -- don't duplicate
+                tf_removes.remove(text)
+                continue
+            else:
+                tf_removes.add(text)
         section_titles.add(r['section'])
         # if node is text, just check whether there's anything and retain for later
         # because all the text is processed at once at the end
@@ -292,19 +301,33 @@ def get_diff_count(result, lang='en'):
         else:
             name, changes = get_node_diff(node_type=et, prev_wikitext=text, curr_wikitext='', lang=lang)
             node_edits.append(NodeEdit(et, 'remove', r['section'], name, changes))
+    tf_inserts = set()
     for i in result['insert']:
         text = i['text']
         et = i['type']
+        if et == 'Text Formatting' and text.startswith("'"):
+            if text in tf_inserts:  # already added 'start' of text-formatting -- don't duplicate
+                tf_inserts.remove(text)
+                continue
+            else:
+                tf_inserts.add(text)
         section_titles.add(i['section'])
         if et == 'Text' and text:
             curr_text.append(text)
         else:
             name, changes = get_node_diff(node_type=et, prev_wikitext='', curr_wikitext=text, lang=lang)
             node_edits.append(NodeEdit(et, 'insert', i['section'], name, changes))
+    tf_changes = set()
     for c in result['change']:
         et = c['prev']['type']
         ptext = c['prev']['text']
         ctext = c['curr']['text']
+        if et == 'Text Formatting' and ptext.startswith("'"):
+            if ptext in tf_changes:  # already added 'start' of text-formatting -- don't duplicate
+                tf_changes.remove(ptext)
+                continue
+            else:
+                tf_changes.add(ptext)
         section_titles.add(c['curr']['section'])
         section_titles.add(c['prev']['section'])
         if et == 'Text' and ptext != ctext:
@@ -313,10 +336,17 @@ def get_diff_count(result, lang='en'):
         else:
             name, changes = get_node_diff(node_type=et, prev_wikitext=ptext, curr_wikitext=ctext, lang=lang)
             node_edits.append(NodeEdit(et, 'change', c['prev']['section'], name, changes))
+    tf_moves = set()
     for m in result['move']:
         et = m['prev']['type']
         ptext = m['prev']['text']
         ctext = m['curr']['text']
+        if et == 'Text Formatting' and ptext.startswith("'"):
+            if ptext in tf_moves:  # already added 'start' of text-formatting -- don't duplicate
+                tf_moves.remove(ptext)
+                continue
+            else:
+                tf_moves.add(ptext)
         section_titles.add(m['curr']['section'])
         section_titles.add(m['prev']['section'])
         name, changes = get_node_diff(node_type=et, prev_wikitext=ptext, curr_wikitext=ctext, lang=lang)

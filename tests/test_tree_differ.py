@@ -72,7 +72,8 @@ def test_remove_formatting():
     curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen'''",
                                           "Karl Josef Aigen",
                                           1)
-    expected_changes = [('remove', '0: Lede', 'Text Formatting')]
+    # two tf-spans removed; won't be reduced to a single block until the node differ
+    expected_changes = [('remove', '0: Lede', 'Text Formatting'), ('remove', '0: Lede', 'Text Formatting')]
     diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en')
     diff.get_diff()
     check_change_counts(diff.tree_diff, expected_changes)
@@ -105,10 +106,13 @@ table = """{| border="1" cellspacing="0" cellpadding="5"
 
 def test_insert_table():
     curr_wikitext = prev_wikitext + '\n' + table
+    # four tf-spans removed; won't be reduced to two blocks until the node differ
     expected_changes = [('insert', '4: ==External links==', 'Table'),
                         ('change', '4: ==External links==', 'Text'),
                         ('insert', '4: ==External links==', 'Wikilink'),
                         ('insert', '4: ==External links==', 'Wikilink'),
+                        ('insert', '4: ==External links==', 'Text Formatting'),
+                        ('insert', '4: ==External links==', 'Text Formatting'),
                         ('insert', '4: ==External links==', 'Text Formatting'),
                         ('insert', '4: ==External links==', 'Text Formatting')]
     diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en')
@@ -123,10 +127,12 @@ File:Lucas Cranach d.Ä. - Bildnis des Moritz Büchner.jpg|[[Lucas Cranach the E
 
 def test_insert_gallery():
     curr_wikitext = prev_wikitext + '\n' + gallery
+    # two tf-spans removed; won't be reduced to a single block until the node differ
     expected_changes = [('insert', '4: ==External links==', 'Gallery'),
                         ('change', '4: ==External links==', 'Text'),
                         ('insert', '4: ==External links==', 'Media'),
                         ('insert', '4: ==External links==', 'Wikilink'),
+                        ('insert', '4: ==External links==', 'Text Formatting'),
                         ('insert', '4: ==External links==', 'Text Formatting')]
     diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en')
     diff.get_diff()

@@ -1,4 +1,6 @@
 # helper functions for handling mwparserfromhell / wikitext
+import re
+
 import mwparserfromhell as mw
 
 from mwedittypes.constants import *
@@ -60,8 +62,13 @@ def node_to_name(mwnode, lang='en'):
 
 
 def wikitext_to_plaintext(wt, lang='en'):
-    """Helper function for converting wikitext to plaintext."""
-    return ''.join([extract_text(n, lang) for n in mw.parse(wt).nodes])
+    """Helper function for converting wikitext to plaintext.
+
+    Removes text-formatting syntax (italic '', bold ''', bold-italic ''''') from nodes because
+    skip_style_tags is set to True and so these syntax are treated as text by mwparserfromhell.
+    This is to avoid parsing issues that arise from unclosed text-formatting syntax.
+    """
+    return ''.join([re.sub("'{2,}", "", extract_text(n, lang)) for n in mw.parse(wt, skip_style_tags=True).nodes])
 
 
 def extract_text(mwnode, lang='en'):
@@ -104,7 +111,6 @@ def find_nested_media(wikitext, is_gallery=False, max_link_length=240):
     So for galleries, we also extract everything between filename and end-of-line as the media options.
     """
     lc_wt = wikitext.lower()
-    media = []
     end = 0
     while True:
         m = EXTEN_PATTERN.search(lc_wt, pos=end)
@@ -120,8 +126,25 @@ def find_nested_media(wikitext, is_gallery=False, max_link_length=240):
                 else:
                     media_options = wikitext[end:end_of_line]
                 media_wikitext += media_options
-            media.append(media_wikitext.strip())
-    return media
+            yield(media_wikitext.strip())
+
+
+def find_nested_textformatting(wikitext):
+    """Context-insensitive search for likely text-formatting in wikitext.
+
+    Specifically, there are three viable options:
+    ''italics'' (2 '), '''bold''' (3 '), and '''''bold-italic''''' (5 ')
+    The only rule is that this text-formatting cannot be broken up by a new-line
+    but it can span nodes so a valid chunk of wikitext might only have the start
+    or end of the text-formatting. For this reason, we look for sequences of
+    text-formatting that are 2, 3, or 5 ' and treat them as text-formatting regardless
+    of whether they are the start or end of a block (which is not knowable). The number
+    of final text-formatting nodes across an entire article then has to be divided by
+    two to reach a more accurate count of how many text-formatting blocks there are.
+    """
+    if "''" in wikitext:
+        for tf in re.finditer("'{2,5}", wikitext):
+            yield(tf.group(), tf.span())
 
 
 def full_diff_to_simple(full_diff):
