@@ -240,10 +240,10 @@ class Differ:
         """Remove all non-section nodes."""
         for n in PostOrderIter(t1.root):
             if n.ntype == 'Section':
-                n.children = []
+                n.children = n.children[:1] if n.children else []
         for n in PostOrderIter(t2.root):
             if n.ntype == 'Section':
-                n.children = []
+                n.children = n.children[:1] if n.children else []
 
     def prune_sections(self, t1, t2):
         """Prune nodes from any sections that align across revisions"""
