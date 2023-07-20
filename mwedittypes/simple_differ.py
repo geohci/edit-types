@@ -3,11 +3,17 @@ import re
 import mwparserfromhell as mw
 
 from mwedittypes.tokenizer import parse_change_text
-from mwedittypes.utils import find_nested_media, node_to_name, sec_to_name, simple_node_class, wikitext_to_plaintext
+from mwedittypes.utils import (
+    find_nested_media,
+    node_to_name,
+    sec_to_name,
+    simple_node_class,
+    wikitext_to_plaintext,
+)
 
 
 # equivalent of main function
-def get_diff(prev_wikitext, curr_wikitext, lang='en'):
+def get_diff(prev_wikitext, curr_wikitext, lang="en"):
     """Run through full process of getting diff between two wikitext revisions."""
     prev_tree = WikitextBag(wikitext=prev_wikitext, lang=lang)
     curr_tree = WikitextBag(wikitext=curr_wikitext, lang=lang)
@@ -21,7 +27,7 @@ class Node:
     Basic object for wrapping mwparserfromhell wikitext nodes
     """
 
-    def __init__(self, name, ntype='Text', mwnode=None, section=None):
+    def __init__(self, name, ntype="Text", mwnode=None, section=None):
         self.name = name  # For debugging purposes
         self.ntype = ntype  # Type of node for result
         self.mwnode = mwnode
@@ -35,25 +41,28 @@ class Node:
         self.content_hash = hash(self.text)
         self.section = section  # section that the node is a part of -- useful for formatting final diff
 
-    def unnest(self, lang='en'):
+    def unnest(self, lang="en"):
         """Expand a node to also include all of its subnodes.
         This approach starts with a single wikitext node -- e.g., a single Tag node with nested link nodes etc.:
         <ref>{{cite web|title=[[Gallery]]|url=http://digital.belvedere.at|publisher=Digitales Belvedere}}</ref>
-        and splits it into its component parts (ref, template, wikilink, externallink) to identify fine-grained changes.
+        and splits it into its component parts (ref, template, wikilink, externallink) to find fine-grained changes.
         """
         nodes = []
         # Using string mixin methods such as wt.find(x) for subnodes in the for
         # loop below means doing str(wt) everytime, which is expensive because
         # it recursively converts each node to str. Better to create a string using
         # the node's text and use built-in string methods instead.
-        if self.ntype == 'Gallery':
+        if self.ntype == "Gallery":
             # strip leading / trailing gallery tags so parser correctly parses everything in between
             # otherwise links, formatting, etc. is treated as text
-            gallery_start = self.text.find('>')
-            gallery_end = self.text.rfind('<')
+            gallery_start = self.text.find(">")
+            gallery_end = self.text.rfind("<")
             try:
                 # the <br> is a hack; it'll be skipped in the ifilter loop; otherwise first image skipped
-                wt = mw.parse('<br>' + self.text[gallery_start+1:gallery_end], skip_style_tags=True)
+                wt = mw.parse(
+                    "<br>" + self.text[gallery_start + 1 : gallery_end],
+                    skip_style_tags=True,
+                )
             except Exception:  # fallback
                 wt = mw.parse(self.mwnode)
         else:
@@ -62,24 +71,33 @@ class Node:
             if idx == 0:
                 continue  # skip root node -- already set
             ntype = simple_node_class(nn, lang)
-            if ntype == 'Text':
+            if ntype == "Text":
                 # media w/o bracket will be IDed as text by mwparserfromhell
                 # templates / galleries are where we find this nested media
-                if self.ntype == 'Template' or self.ntype == 'Gallery':
-                    for m in find_nested_media(str(nn), is_gallery=(self.ntype == 'Gallery')):
-                        nn_node = Node(f'Media: {m[:10]}...',
-                                       ntype='Media',
-                                       mwnode=m,
-                                       section=self.section)
+                if self.ntype == "Template" or self.ntype == "Gallery":
+                    for m in find_nested_media(
+                        str(nn), is_gallery=(self.ntype == "Gallery")
+                    ):
+                        nn_node = Node(
+                            f"Media: {m[:10]}...",
+                            ntype="Media",
+                            mwnode=m,
+                            section=self.section,
+                        )
                         nodes.append(nn_node)
             # tables are very highly-structured and produce a ton of nodes (each cell and more)
             # so we just extract links, formatting, etc. that appears in the table and skip the cells
             # because changes to those will generally be caught in the overall table changes and text changes
             # this leads to much faster parsing in exchange for not knowing how many table cells were edited
-            elif ntype == 'Table Element':
+            elif ntype == "Table Element":
                 pass
             else:
-                nn_node = Node(node_to_name(nn, lang=lang), ntype=ntype, mwnode=nn, section=self.section)
+                nn_node = Node(
+                    node_to_name(nn, lang=lang),
+                    ntype=ntype,
+                    mwnode=nn,
+                    section=self.section,
+                )
                 nodes.append(nn_node)
         return nodes
 
@@ -106,35 +124,72 @@ class WikitextBag:
                 sec_id = sec_to_name(s, sidx)
                 s_node = Node(sec_id, ntype="Section", mwnode=s, section=sec_id)
                 self.secname_to_text[sec_id] = s_node.text
-                self.nodes[s_node.content_hash] = self.nodes.get(s_node.content_hash, []) + [s_node]
-                for n in s.nodes:  # this is just top-level of nodes so e.g., table but not all the table rows etc.
+                self.nodes[s_node.content_hash] = self.nodes.get(
+                    s_node.content_hash, []
+                ) + [s_node]
+                for (
+                    n
+                ) in (
+                    s.nodes
+                ):  # this is just top-level of nodes so e.g., table but not all the table rows etc.
                     ntype = simple_node_class(n, self.lang)
-                    if ntype != 'Text':
-                        n_node = Node(node_to_name(n, self.lang), ntype=ntype, mwnode=n, section=s_node.name)
-                        self.nodes[n_node.content_hash] = self.nodes.get(n_node.content_hash, []) + [n_node]
+                    if ntype != "Text":
+                        n_node = Node(
+                            node_to_name(n, self.lang),
+                            ntype=ntype,
+                            mwnode=n,
+                            section=s_node.name,
+                        )
+                        self.nodes[n_node.content_hash] = self.nodes.get(
+                            n_node.content_hash, []
+                        ) + [n_node]
                 if "''" in s_node.text:
-                    for line in s_node.text.split('\n'):
+                    for line in s_node.text.split("\n"):
                         if "''" in line:
                             line, bt_found = re.subn("'{5}", "", line)
                             for _ in range(bt_found // 2):
-                                tfn = Node("Bold-Italic", ntype='Text Formatting', mwnode="'''''",
-                                           section=s_node.name)
-                                self.nodes[tfn.content_hash] = self.nodes.get(tfn.content_hash, []) + [tfn]
+                                tfn = Node(
+                                    "Bold-Italic",
+                                    ntype="Text Formatting",
+                                    mwnode="'''''",
+                                    section=s_node.name,
+                                )
+                                self.nodes[tfn.content_hash] = self.nodes.get(
+                                    tfn.content_hash, []
+                                ) + [tfn]
                             line, b_found = re.subn("'{3}", "", line)
                             for _ in range(b_found // 2):
-                                tfn = Node("Bold", ntype='Text Formatting', mwnode="'''", section=s_node.name)
-                                self.nodes[tfn.content_hash] = self.nodes.get(tfn.content_hash, []) + [tfn]
+                                tfn = Node(
+                                    "Bold",
+                                    ntype="Text Formatting",
+                                    mwnode="'''",
+                                    section=s_node.name,
+                                )
+                                self.nodes[tfn.content_hash] = self.nodes.get(
+                                    tfn.content_hash, []
+                                ) + [tfn]
                             line, t_found = re.subn("'{2}", "", line)
                             for _ in range(t_found // 2):
-                                tfn = Node("Italic", ntype='Text Formatting', mwnode="''", section=s_node.name)
-                                self.nodes[tfn.content_hash] = self.nodes.get(tfn.content_hash, []) + [tfn]
+                                tfn = Node(
+                                    "Italic",
+                                    ntype="Text Formatting",
+                                    mwnode="''",
+                                    section=s_node.name,
+                                )
+                                self.nodes[tfn.content_hash] = self.nodes.get(
+                                    tfn.content_hash, []
+                                ) + [tfn]
 
     def expand_nested(self):
         """Expand nested nodes in tree -- e.g., Ref tags with templates/links contained in them."""
         to_add = {}
         for n_hash in self.nodes:
             for n in self.nodes[n_hash]:
-                if n.ntype not in ('Section', 'Heading', 'Text'):  # leaves tag, link, etc.
+                if n.ntype not in (
+                    "Section",
+                    "Heading",
+                    "Text",
+                ):  # leaves tag, link, etc.
                     for nn in n.unnest(self.lang):
                         to_add[nn.content_hash] = to_add.get(nn.content_hash, []) + [nn]
 
@@ -182,7 +237,7 @@ class Differ:
                 # extras in t2: remove from t1 and keep just extras in t2
                 elif diff < 0:
                     t1n.pop(n_hash)
-                    t2n[n_hash] = t2n[n_hash][:abs(diff)]
+                    t2n[n_hash] = t2n[n_hash][: abs(diff)]
         # no need to loop through t2n because what's left in it doesn't have any matches
 
     def count_actions(self):
@@ -196,13 +251,13 @@ class Differ:
         for n_hash in self.t1.nodes:
             for n in self.t1.nodes[n_hash]:
                 prev_ntypes[n.ntype] = prev_ntypes.get(n.ntype, 0) + 1
-                if n.ntype == 'Section':
+                if n.ntype == "Section":
                     prev_text_sections.add(n.section)
         curr_ntypes = {}
         for n_hash in self.t2.nodes:
             for n in self.t2.nodes[n_hash]:
                 curr_ntypes[n.ntype] = curr_ntypes.get(n.ntype, 0) + 1
-                if n.ntype == 'Section':
+                if n.ntype == "Section":
                     curr_text_sections.add(n.section)
 
         all_ntypes = set(prev_ntypes.keys()).union(set(curr_ntypes.keys()))
@@ -213,17 +268,17 @@ class Differ:
             ins = curr_ntypes.get(n_type, 0) - chg
             edit_types[n_type] = {}
             if chg > 0:
-                edit_types[n_type]['change'] = chg
+                edit_types[n_type]["change"] = chg
             if rem > 0:
-                edit_types[n_type]['remove'] = rem
+                edit_types[n_type]["remove"] = rem
             if ins > 0:
-                edit_types[n_type]['insert'] = ins
+                edit_types[n_type]["insert"] = ins
 
         lang = self.t1.lang
-        prev_text = ''
+        prev_text = ""
         for s in prev_text_sections:
             prev_text += wikitext_to_plaintext(self.t1.secname_to_text[s], lang=lang)
-        curr_text = ''
+        curr_text = ""
         for s in curr_text_sections:
             curr_text += wikitext_to_plaintext(self.t2.secname_to_text[s], lang=lang)
 

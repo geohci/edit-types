@@ -4,8 +4,9 @@ from mwedittypes.tree_differ import get_diff
 
 
 class StructuredEditTypes:
-
-    def __init__(self, prev_wikitext='', curr_wikitext='', lang='en', timeout=False, debug=False):
+    def __init__(
+        self, prev_wikitext="", curr_wikitext="", lang="en", timeout=False, debug=False
+    ):
         self.prev_wikitext = prev_wikitext
         self.curr_wikitext = curr_wikitext
         self.lang = lang
@@ -14,20 +15,22 @@ class StructuredEditTypes:
         self.actions = None
 
     def get_diff(self):
-        self.tree_diff = get_diff(self.prev_wikitext, self.curr_wikitext, lang=self.lang,
-                                  timeout=self.timeout)
+        self.tree_diff = get_diff(
+            self.prev_wikitext, self.curr_wikitext, lang=self.lang, timeout=self.timeout
+        )
         self.actions = get_diff_count(self.tree_diff, lang=self.lang)
         return self.actions
 
 
 class SimpleEditTypes:
-
-    def __init__(self, prev_wikitext='', curr_wikitext='', lang='en'):
+    def __init__(self, prev_wikitext="", curr_wikitext="", lang="en"):
         self.prev_wikitext = prev_wikitext
         self.curr_wikitext = curr_wikitext
         self.lang = lang
         self.actions = None
 
     def get_diff(self):
-        self.actions = simple_get_diff(self.prev_wikitext, self.curr_wikitext, lang=self.lang)
+        self.actions = simple_get_diff(
+            self.prev_wikitext, self.curr_wikitext, lang=self.lang
+        )
         return self.actions

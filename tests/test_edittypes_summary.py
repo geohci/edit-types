@@ -1,6 +1,12 @@
 import pytest
+from context import (
+    SimpleEditTypes,
+    StructuredEditTypes,
+    cjk_prev_wikitext,
+    full_diff_to_simple,
+    prev_wikitext,
+)
 
-from context import cjk_prev_wikitext, StructuredEditTypes, full_diff_to_simple, prev_wikitext, SimpleEditTypes
 
 # Text tests
 def test_text_change():

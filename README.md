@@ -62,7 +62,7 @@ Structured:
 In most cases (~90%), the two approaches agree in their overall results. They differ in the following situations:
 * Very large diffs -- when `timeout` is set to `True`, the StructuredEditTypes class is more likely to fall-back to a simple diff and miss some details as a result
 * Content moves -- the simplified library cannot detect moves
-* Changes vs. Inserts+Removes -- the simplified library does not distinguish between e.g., a template being changed vs. a template being removed and separate template being inserted 
+* Changes vs. Inserts+Removes -- the simplified library does not distinguish between e.g., a template being changed vs. a template being removed and separate template being inserted
 
 A good example of a diff where they vary in outputs is revision 1107840666 on English Wikipedia ([diff](https://en.wikipedia.org/w/index.php?diff=1107840666&oldid=1094519551&title=Blumenthal,_Saskatchewan&diffmode=source); [model output](https://wiki-topic.toolforge.org/diff-tagging?lang=en&revid=1107840666)).
 
@@ -76,7 +76,7 @@ Words are the most challenging aspect and the one place where you will see varyi
 
 ## Known Issues
 Wikitext/language is verrrrrrry complicated and so there are certain things we can't feasibly extract consistently. The ones we know about:
-* Sentences: full stop punctuation is used for [many things](https://en.wikipedia.org/wiki/Full_stop#Usage). Abbreviations are particularly challenging and will falsely split up sentences. On the other hand, Thai has no sentence punctuation so each paragraph is (incorrectly) considered the equivalent of a single sentence. 
+* Sentences: full stop punctuation is used for [many things](https://en.wikipedia.org/wiki/Full_stop#Usage). Abbreviations are particularly challenging and will falsely split up sentences. On the other hand, Thai has no sentence punctuation so each paragraph is (incorrectly) considered the equivalent of a single sentence.
 * Words: we have done our best to extract words for whitespace-delimited languages but some languages use special spacing characters that may falsely split up words -- e.g., Bengali. We have done our best to detect account for these languages but may have missed some.
 * Media: images/audio/video can be included in articles via bracketed links, templates, and galleries. Each have their own syntax, and, in particular templates separate the image name from its formatting options. For galleries/bracket-links, we associate the formatting/caption options with the media and changes to them will trigger as media changes. For templates, we cannot do this.
 * Text Formatting: parsing text formatting is quite complicated and context-dependent. We parse the wikitext section-by-section so text formatting split up between sections might parse unexpectedly.
@@ -130,4 +130,3 @@ Troubleshooting:
 * For more background, see: https://meta.wikimedia.org/wiki/Research:Wikipedia_Edit_Types
 * To test out the code, see: https://wiki-topic.toolforge.org/diff-tagging?lang=en
 * To see how the code is used in an API, see: https://github.com/wikimedia/research-api-endpoint-template/tree/edit-types
-

@@ -1,20 +1,28 @@
-from anytree import PostOrderIter, NodeMixin
-from anytree.util import leftsibling
 import mwparserfromhell as mw
+from anytree import NodeMixin, PostOrderIter
+from anytree.util import leftsibling
 
-from mwedittypes.utils import (find_nested_media, find_nested_textformatting, node_to_name, sec_to_name,
-                               simple_node_class, wikitext_to_plaintext)
+from mwedittypes.utils import (
+    find_nested_media,
+    find_nested_textformatting,
+    node_to_name,
+    sec_to_name,
+    simple_node_class,
+    wikitext_to_plaintext,
+)
 
 
 # equivalent of main function
-def get_diff(prev_wikitext, curr_wikitext, lang='en', timeout=False):
+def get_diff(prev_wikitext, curr_wikitext, lang="en", timeout=False):
     """Run through full process of getting tree diff between two wikitext revisions."""
     # To provide proper structure, need all content to be nested under a section
     prev_tree = WikitextTree(wikitext=prev_wikitext, lang=lang)
     curr_tree = WikitextTree(wikitext=curr_wikitext, lang=lang)
     d = Differ(prev_tree, curr_tree, timeout=timeout)
     diff = d.get_corresponding_nodes()
-    result = diff.post_process(prev_tree.secname_to_text, curr_tree.secname_to_text, lang=lang)
+    result = diff.post_process(
+        prev_tree.secname_to_text, curr_tree.secname_to_text, lang=lang
+    )
     return result
 
 
@@ -23,13 +31,23 @@ class OrderedNode(NodeMixin):
     Extension of anytree library node to support tree differ.
     """
 
-    def __init__(self, name, ntype='Text', idx=-1, mwnode=None, section=None,
-                 parent=None, children=None):
+    def __init__(
+        self,
+        name,
+        ntype="Text",
+        idx=-1,
+        mwnode=None,
+        section=None,
+        parent=None,
+        children=None,
+    ):
         super(OrderedNode, self).__init__()
         self.name = name  # For debugging purposes
         self.ntype = ntype  # Different node types can be treated differently when computing equality
         self.mwnode = mwnode
-        self.text = str(mwnode) if mwnode is not None else ''  # Text that can then be passed to a diffing library
+        self.text = (
+            str(mwnode) if mwnode is not None else ""
+        )  # Text that can then be passed to a diffing library
         # Used for quickly computing equality for most nodes.
         # Generally this just a simple hash of self.mwnode (wikitext associated with a node) but
         # the text hash for sections is based on all the content within the section
@@ -49,7 +67,7 @@ class OrderedNode(NodeMixin):
             self.leftmostidx = self.idx if self.is_leaf else self.children[0].leftmost()
         return self.leftmostidx
 
-    def unnest(self, lang='en'):
+    def unnest(self, lang="en"):
         """Build tree of document nodes by recursing within a single wikitext node.
 
         This approach starts with a single wikitext node -- e.g., a single Tag node with nested link nodes etc.:
@@ -60,67 +78,86 @@ class OrderedNode(NodeMixin):
         <--rest-of-tree-- Reference <--child-of-- Template (cite web) <--child-of-- WikiLink (Gallery)
                                                                 ^--------child-of-- External Link (http://digital...)
         """
-        if self.ntype == 'Gallery':
+        if self.ntype == "Gallery":
             # strip leading / trailing gallery tags so parser correctly parses everything in between
             # otherwise links, templates, etc. is treated as text
-            gallery_start = self.text.find('>')
-            gallery_end = self.text.rfind('<')
+            gallery_start = self.text.find(">")
+            gallery_end = self.text.rfind("<")
             try:
                 # the break is a hack; it'll be skipped in the ifilter loop; otherwise first image skipped
-                wt = mw.parse('<br>' + self.text[gallery_start+1:gallery_end], skip_style_tags=True)
+                wt = mw.parse(
+                    "<br>" + self.text[gallery_start + 1 : gallery_end],
+                    skip_style_tags=True,
+                )
             except Exception:  # fallback
                 wt = mw.parse(self.mwnode)  # automatically carries over skip_style_tags
         else:
             wt = mw.parse(self.mwnode)  # automatically carries over skip_style_tags
-        parent_ranges = [(0, len(self.text), self)]  # (start idx of node, end idx of node, node object)
+        parent_ranges = [
+            (0, len(self.text), self)
+        ]  # (start idx of node, end idx of node, node object)
         for idx, nn in enumerate(wt.ifilter(recursive=True)):
             if idx == 0:
                 continue  # skip root node -- already set or placeholder <br> node for galleries
             ntype = simple_node_class(nn, lang)
-            if ntype == 'Text':
+            if ntype == "Text":
                 # media w/o bracket will be IDed as text by mwparserfromhell
                 # templates / galleries are where we find this nested media
-                # any discovered media will just be the start and aren't guaranteed to be the whole image + caption etc.
-                if self.ntype == 'Template' or self.ntype == 'Gallery':
-                    for m in find_nested_media(str(nn), is_gallery=(self.ntype == 'Gallery')):
-                        nn_node = OrderedNode(f'Media: {m[:10]}...',
-                                              ntype='Media',
-                                              mwnode=m,
-                                              section=self.section,
-                                              parent=self)
+                # any discovered media will just be the start and aren't guaranteed to be the whole image+caption etc.
+                if self.ntype == "Template" or self.ntype == "Gallery":
+                    for m in find_nested_media(
+                        str(nn), is_gallery=(self.ntype == "Gallery")
+                    ):
+                        nn_node = OrderedNode(
+                            f"Media: {m[:10]}...",
+                            ntype="Media",
+                            mwnode=m,
+                            section=self.section,
+                            parent=self,
+                        )
                         offset = self.text.find(str(m), parent_ranges[0][0])
                         parent_ranges.insert(0, (offset, offset + len(m), nn_node))
             # tables are very highly-structured and produce a ton of nodes (each cell and more)
             # so we just extract links, formatting, etc. that appears in the table and skip the cells
             # because changes to those will generally be caught in the overall table changes and text changes
             # this leads to much faster parsing in exchange for not knowing how many table cells were edited
-            elif ntype == 'Table Element':
+            elif ntype == "Table Element":
                 pass
             else:
                 # start looking from the start of the latest node
                 node_start = self.text.find(str(nn), parent_ranges[0][0])
                 # identify direct parent of node
                 for parent_start, parent_end, parent_node in parent_ranges:
-                    if node_start < parent_end:  # starts before end of a previous node; already know it begins after it
-                        nn_node = OrderedNode(node_to_name(nn, lang=lang), ntype=ntype, mwnode=nn,
-                                              section=self.section, parent=parent_node)
-                        parent_ranges.insert(0, (node_start, node_start + len(nn), nn_node))
+                    if (
+                        node_start < parent_end
+                    ):  # starts before end of a previous node; already know it begins after it
+                        nn_node = OrderedNode(
+                            node_to_name(nn, lang=lang),
+                            ntype=ntype,
+                            mwnode=nn,
+                            section=self.section,
+                            parent=parent_node,
+                        )
+                        parent_ranges.insert(
+                            0, (node_start, node_start + len(nn), nn_node)
+                        )
                         break
         if "''" in self.text:
             for tfnode, tfspan in find_nested_textformatting(self.text):
                 for parent_start, parent_end, parent_node in parent_ranges:
                     if tfspan[0] >= parent_start and tfspan[1] <= parent_end:
-                        nn_node = OrderedNode(f'Text-Formatting: {tfnode}',
-                                              ntype='Text Formatting',
-                                              mwnode=tfnode,
-                                              section=self.section,
-                                              parent=parent_node)
+                        nn_node = OrderedNode(
+                            f"Text-Formatting: {tfnode}",
+                            ntype="Text Formatting",
+                            mwnode=tfnode,
+                            section=self.section,
+                            parent=parent_node,
+                        )
                         break
 
     def dump(self):
-        return {'type': self.ntype,
-                'text': self.text,
-                'section': self.section}
+        return {"type": self.ntype, "text": self.text, "section": self.section}
+
 
 class WikitextTree:
     """
@@ -129,7 +166,7 @@ class WikitextTree:
 
     def __init__(self, wikitext, lang="en"):
         self.lang = lang
-        self.root = OrderedNode('root', ntype="Article")
+        self.root = OrderedNode("root", ntype="Article")
         self.secname_to_text = {}
         if wikitext:
             self.wikitext_to_tree(wikitext)
@@ -145,17 +182,24 @@ class WikitextTree:
         wt = mw.parse(wikitext, skip_style_tags=True)
         for sidx, s in enumerate(wt.get_sections(flat=True)):
             sec_id = sec_to_name(s, sidx)
-            sec_text = ''.join([str(n) for n in s.nodes])
+            sec_text = "".join([str(n) for n in s.nodes])
             self.secname_to_text[sec_id] = sec_text
-            s_node = OrderedNode(sec_id, ntype="Section", mwnode=s, section=sec_id, parent=self.root)
+            s_node = OrderedNode(
+                sec_id, ntype="Section", mwnode=s, section=sec_id, parent=self.root
+            )
             for n in s.nodes:
-                n_node = OrderedNode(node_to_name(n, self.lang), ntype=simple_node_class(n, self.lang), mwnode=n,
-                                     section=s_node.name, parent=s_node)
+                _ = OrderedNode(
+                    node_to_name(n, self.lang),
+                    ntype=simple_node_class(n, self.lang),
+                    mwnode=n,
+                    section=s_node.name,
+                    parent=s_node,
+                )
 
     def expand_nested(self):
         """Expand nested nodes in tree -- e.g., Ref tags with templates/links contained in them."""
         for n in PostOrderIter(self.root):
-            if n.ntype not in ('Article', 'Section'):
+            if n.ntype not in ("Article", "Section"):
                 n.unnest(self.lang)
 
 
@@ -184,7 +228,9 @@ class Differ:
         self.ins_cost = 1
         self.rem_cost = 1
         self.chg_cost = 1
-        self.nodetype_chg_cost = 10  # arbitrarily high to encourage remove+insert when node types change
+        self.nodetype_chg_cost = (
+            10  # arbitrarily high to encourage remove+insert when node types change
+        )
 
         # Permanent store of transactions such that transactions[x][y] is the minimum
         # transactions to get from the sub-tree rooted at node x (in tree1) to the sub-tree
@@ -222,22 +268,36 @@ class Differ:
         """Quick heuristic preprocessing to reduce tree differ time by removing matching sections."""
         self.prune_sections(t1, t2)
         # arbitrary: more than 500 nodes altogether even after pruning and before unnesting -- just diff sections
-        if self.timeout and (sum(1 for n in PostOrderIter(t1.root)) + sum(1 for n in PostOrderIter(t2.root))) > 500:
+        if (
+            self.timeout
+            and (
+                sum(1 for n in PostOrderIter(t1.root))
+                + sum(1 for n in PostOrderIter(t2.root))
+            )
+            > 500
+        ):
             self.prune_to_sections(t1, t2)
         # arbitrary: seems like manageable number of total nodes -- unnest fully before diffing
-        elif expand_nodes and (not self.timeout or
-                               (sum([len(mw.parse(n.mwnode).filter()) for n in PostOrderIter(t1.root)]) +
-                               sum([len(mw.parse(n.mwnode).filter()) for n in PostOrderIter(t2.root)])) < 1000):
+        elif expand_nodes and (
+            not self.timeout
+            or (
+                sum([len(mw.parse(n.mwnode).filter()) for n in PostOrderIter(t1.root)])
+                + sum(
+                    [len(mw.parse(n.mwnode).filter()) for n in PostOrderIter(t2.root)]
+                )
+            )
+            < 1000
+        ):
             t1.expand_nested()
             t2.expand_nested()
 
     def prune_to_sections(self, t1, t2):
         """Remove all non-section nodes."""
         for n in PostOrderIter(t1.root):
-            if n.ntype == 'Section':
+            if n.ntype == "Section":
                 n.children = []
         for n in PostOrderIter(t2.root):
-            if n.ntype == 'Section':
+            if n.ntype == "Section":
                 n.children = []
 
     def prune_sections(self, t1, t2):
@@ -276,8 +336,16 @@ class Differ:
         if self.transactions:
             for i in range(0, len(self.t1)):
                 for j in range(0, len(self.t2)):
-                    if self.transactions.get(i, {}).get(j) and len(self.transactions[i][j]) > 0:
-                        self.transactions[i][j] = tuple([self.idx_to_transaction[idx] for idx in self.transactions[i][j]])
+                    if (
+                        self.transactions.get(i, {}).get(j)
+                        and len(self.transactions[i][j]) > 0
+                    ):
+                        self.transactions[i][j] = tuple(
+                            [
+                                self.idx_to_transaction[idx]
+                                for idx in self.transactions[i][j]
+                            ]
+                        )
 
     def get_node_distance(self, n1, n2):
         """
@@ -333,9 +401,11 @@ class Differ:
                     chg = transactions[i_minus_1][j_minus_1]
                     node_distance = self.get_node_distance(n1, n2)
                     # cost of each transaction
-                    transaction = self.get_lowest_cost(len(rem) + self.rem_cost,
-                                                       len(ins) + self.ins_cost,
-                                                       len(chg) + node_distance)
+                    transaction = self.get_lowest_cost(
+                        len(rem) + self.rem_cost,
+                        len(ins) + self.ins_cost,
+                        len(chg) + node_distance,
+                    )
                     if transaction == 0:
                         # record a remove
                         rc = rem.copy()
@@ -368,9 +438,11 @@ class Differ:
                         k2 = n2.leftmost() - 1
                     chg = transactions[k1][k2]
 
-                    transaction = self.get_lowest_cost(len(rem) + self.rem_cost,
-                                                       len(ins) + self.ins_cost,
-                                                       len(chg) + len(self.transactions[i][j]))
+                    transaction = self.get_lowest_cost(
+                        len(rem) + self.rem_cost,
+                        len(ins) + self.ins_cost,
+                        len(chg) + len(self.transactions[i][j]),
+                    )
                     if transaction == 0:
                         # record a remove
                         rc = rem.copy()
@@ -405,13 +477,18 @@ class Differ:
                     prev_node = self.t1[transactions[i][0]]
                     curr_node = self.t2[transactions[i][1]]
                     change.append((prev_node, curr_node))
-            diff = {'remove': remove, 'insert': insert, 'change': change}
+            diff = {"remove": remove, "insert": insert, "change": change}
             self.detect_moves(diff)
-            return Diff(nodes_removed=diff['remove'], nodes_inserted=diff['insert'],
-                        nodes_changed=diff['change'], nodes_moved=diff['move'])
+            return Diff(
+                nodes_removed=diff["remove"],
+                nodes_inserted=diff["insert"],
+                nodes_changed=diff["change"],
+                nodes_moved=diff["move"],
+            )
         else:
-            return Diff(nodes_removed=[], nodes_inserted=[],
-                        nodes_changed=[], nodes_moved=[])
+            return Diff(
+                nodes_removed=[], nodes_inserted=[], nodes_changed=[], nodes_moved=[]
+            )
 
     def detect_moves(self, diff):
         """Detect when nodes were moved (as opposed to removed/inserted/changed) and update diff.
@@ -432,13 +509,21 @@ class Differ:
         """
 
         # build list of all prev and curr nodes to compare for matches
-        ntypes_to_ignore = ('Text', 'Text Formatting', 'List')
-        prev_nodes = [('remove', i, pn) for i, pn in enumerate(diff['remove']) if pn.ntype not in ntypes_to_ignore]
-        curr_nodes = [('insert', j, cn) for j, cn in enumerate(diff['insert']) if cn.ntype not in ntypes_to_ignore]
-        for k in range(len(diff['change'])):
-            if diff['change'][k][0].ntype not in ntypes_to_ignore:
-                prev_nodes.append(('change', k, diff['change'][k][0]))
-                curr_nodes.append(('change', k, diff['change'][k][1]))
+        ntypes_to_ignore = ("Text", "Text Formatting", "List")
+        prev_nodes = [
+            ("remove", i, pn)
+            for i, pn in enumerate(diff["remove"])
+            if pn.ntype not in ntypes_to_ignore
+        ]
+        curr_nodes = [
+            ("insert", j, cn)
+            for j, cn in enumerate(diff["insert"])
+            if cn.ntype not in ntypes_to_ignore
+        ]
+        for k in range(len(diff["change"])):
+            if diff["change"][k][0].ntype not in ntypes_to_ignore:
+                prev_nodes.append(("change", k, diff["change"][k][0]))
+                curr_nodes.append(("change", k, diff["change"][k][1]))
 
         # loop through prev/curr nodes and look for matches. constraints:
         # * nodes can only match with one other node
@@ -450,44 +535,54 @@ class Differ:
         change_to_remove = {}
         for pet, pidx, pn in prev_nodes:
             for cet, cidx, cn in curr_nodes:
-                cid = f'{cet}-{cidx}'
+                cid = f"{cet}-{cidx}"
                 # same type/text and not already part of a move
-                if pn.ntype == cn.ntype and pn.content_hash == cn.content_hash and cid not in curr_found:
+                if (
+                    pn.ntype == cn.ntype
+                    and pn.content_hash == cn.content_hash
+                    and cid not in curr_found
+                ):
                     prev_moved.append((pet, pidx))
                     curr_moved.append((cet, cidx))
                     curr_found.add(cid)
-                    if pet == 'change':
-                        corresponding_changed_node = diff['change'][pidx][1]
+                    if pet == "change":
+                        corresponding_changed_node = diff["change"][pidx][1]
                         change_to_insert[pidx] = corresponding_changed_node
-                    if cet == 'change':
-                        corresponding_changed_node = diff['change'][cidx][0]
+                    if cet == "change":
+                        corresponding_changed_node = diff["change"][cidx][0]
                         change_to_remove[cidx] = corresponding_changed_node
                     break
 
         # populate move list
         # if from a change, make sure it also isn't set to be moved to insert/remove
-        diff['move'] = []
+        diff["move"] = []
         if prev_moved:
             for i in range(len(prev_moved)):
                 pet, pidx = prev_moved[i]
                 cet, cidx = curr_moved[i]
                 pn = diff[pet][pidx]
-                if pet == 'change':  # pn is not the node but tuple of (prev_node, curr_node)
+                if (
+                    pet == "change"
+                ):  # pn is not the node but tuple of (prev_node, curr_node)
                     pn = pn[0]
-                    if pidx in change_to_remove:  # don't add to remove -- was involved in its own move
+                    if (
+                        pidx in change_to_remove
+                    ):  # don't add to remove -- was involved in its own move
                         change_to_remove.pop(pidx)
                 cn = diff[cet][cidx]
-                if cet == 'change':
+                if cet == "change":
                     cn = cn[1]
                     if cidx in change_to_insert:
-                        change_to_insert.pop(cidx)  # don't add to insert -- was involved in its own move
-                diff['move'].append((pn, cn))
+                        change_to_insert.pop(
+                            cidx
+                        )  # don't add to insert -- was involved in its own move
+                diff["move"].append((pn, cn))
             moved = sorted(set(prev_moved + curr_moved), reverse=True)
             for et, idx in moved:
                 diff[et].pop(idx)
 
-            diff['insert'].extend(list(change_to_insert.values()))
-            diff['remove'].extend(list(change_to_remove.values()))
+            diff["insert"].extend(list(change_to_insert.values()))
+            diff["remove"].extend(list(change_to_remove.values()))
 
 
 class Diff:
@@ -498,8 +593,10 @@ class Diff:
     def __init__(self, nodes_removed, nodes_inserted, nodes_changed, nodes_moved):
         self.remove = [n.dump() for n in nodes_removed]
         self.insert = [n.dump() for n in nodes_inserted]
-        self.change = [{'prev': pn.dump(), 'curr': cn.dump()} for pn, cn in nodes_changed]
-        self.move = [{'prev': pn.dump(), 'curr': cn.dump()} for pn, cn in nodes_moved]
+        self.change = [
+            {"prev": pn.dump(), "curr": cn.dump()} for pn, cn in nodes_changed
+        ]
+        self.move = [{"prev": pn.dump(), "curr": cn.dump()} for pn, cn in nodes_moved]
         self.sections_p_to_c = {}
         self.sections_c_to_p = {}
         self.processed = False
@@ -516,26 +613,31 @@ class Diff:
         sp = {}
         sc = {}
         for n in self.remove:
-            sec_name = n['section']
+            sec_name = n["section"]
             sp[sec_name] = sections_prev[sec_name]
         for n in self.insert:
-            sec_name = n['section']
+            sec_name = n["section"]
             # update name to section in previous revision for consistency (if it exists)
             sec_id = self.sections_c_to_p[sec_name] or sec_name
-            n['section'] = sec_id
+            n["section"] = sec_id
             sc[sec_id] = sections_curr[sec_name]
         for n in self.change + self.move:
-            pn = n['prev']
-            cn = n['curr']
-            psec_name = pn['section']
+            pn = n["prev"]
+            cn = n["curr"]
+            psec_name = pn["section"]
             sp[psec_name] = sections_prev[psec_name]
-            csec_name = cn['section']
+            csec_name = cn["section"]
             # update name to section in previous revision for consistency (if it exists)
             csec_id = self.sections_c_to_p[csec_name] or csec_name
-            cn['section'] = csec_id
+            cn["section"] = csec_id
             sc[csec_id] = sections_curr[csec_name]
 
-        self.result = {'remove': self.remove, 'insert': self.insert, 'change': self.change, 'move': self.move}
+        self.result = {
+            "remove": self.remove,
+            "insert": self.insert,
+            "change": self.change,
+            "move": self.move,
+        }
 
     def _section_mapping(self, sections_prev, sections_curr):
         """Build mapping of sections between previous and current versions of article."""
@@ -546,9 +648,9 @@ class Diff:
         removed = []
         # removed sections map to null in current; inserted sections map to null in previous
         for n in self.remove:
-            if n['type'] == 'Section':
+            if n["type"] == "Section":
                 for i, s in enumerate(prev):
-                    if s == n['section']:
+                    if s == n["section"]:
                         removed.append(i)
                         break
         for idx in sorted(removed, reverse=True):
@@ -557,30 +659,29 @@ class Diff:
 
         inserted = []
         for n in self.insert:
-            if n['type'] == 'Section':
+            if n["type"] == "Section":
                 for i, s in enumerate(curr):
-                    if s == n['section']:
+                    if s == n["section"]:
                         inserted.append(i)
                         break
         for idx in sorted(inserted, reverse=True):
             c_to_p[curr[idx]] = None
             curr.pop(idx)
 
-
         # changes happen in place so don't effect structure of doc and can be ignored
         # for moved sections, reorder mapping so they are aligned again for dumping
         for c in self.move:
-            pn = c['prev']
-            cn = c['curr']
-            if pn['type'] == 'Section':
+            pn = c["prev"]
+            cn = c["curr"]
+            if pn["type"] == "Section":
                 prev_idx = None
                 curr_idx = None
                 for i, s in enumerate(prev):
-                    if s == pn['section']:
+                    if s == pn["section"]:
                         prev_idx = i
                         break
                 for i, s in enumerate(curr):
-                    if s == cn['section']:
+                    if s == cn["section"]:
                         curr_idx = i
                         break
                 if prev_idx is not None and curr_idx is not None:
@@ -594,7 +695,7 @@ class Diff:
         self.sections_p_to_c = p_to_c
         self.sections_c_to_p = c_to_p
 
-    def _merge_text_changes(self, sections_prev, sections_curr, lang='en'):
+    def _merge_text_changes(self, sections_prev, sections_curr, lang="en"):
         """Replace isolated text changes with section-level text changes."""
         changes = []
         # check each previous section and add if not a match with its corresponding current section
@@ -602,40 +703,72 @@ class Diff:
             csec = self.sections_p_to_c[psec]
             if csec is None:
                 prev_text = wikitext_to_plaintext(sections_prev[psec], lang=lang)
-                changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
-                                         'section': psec, 'offset': 0}})
+                changes.append(
+                    {
+                        "prev": {
+                            "name": node_to_name(prev_text),
+                            "type": "Text",
+                            "text": prev_text,
+                            "section": psec,
+                            "offset": 0,
+                        }
+                    }
+                )
             elif sections_prev[psec] != sections_curr[csec]:
                 prev_text = wikitext_to_plaintext(sections_prev[psec], lang=lang)
                 curr_text = wikitext_to_plaintext(sections_curr[csec], lang=lang)
                 if prev_text != curr_text:
-                    changes.append({'prev': {'name': node_to_name(prev_text), 'type': 'Text', 'text': prev_text,
-                                             'section': psec, 'offset': 0},
-                                    'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
-                                             'section': csec, 'offset': 0}})
+                    changes.append(
+                        {
+                            "prev": {
+                                "name": node_to_name(prev_text),
+                                "type": "Text",
+                                "text": prev_text,
+                                "section": psec,
+                                "offset": 0,
+                            },
+                            "curr": {
+                                "name": node_to_name(curr_text),
+                                "type": "Text",
+                                "text": curr_text,
+                                "section": csec,
+                                "offset": 0,
+                            },
+                        }
+                    )
         # add in unmatched sections from current (new sections)
         for csec in self.sections_c_to_p:
             psec = self.sections_c_to_p[csec]
             if psec is None:
                 curr_text = wikitext_to_plaintext(sections_curr[csec], lang=lang)
-                changes.append({'curr': {'name': node_to_name(curr_text), 'type': 'Text', 'text': curr_text,
-                                         'section': csec, 'offset': 0}})
+                changes.append(
+                    {
+                        "curr": {
+                            "name": node_to_name(curr_text),
+                            "type": "Text",
+                            "text": curr_text,
+                            "section": csec,
+                            "offset": 0,
+                        }
+                    }
+                )
 
         # remove individual text changes
         for idx in range(len(self.remove) - 1, -1, -1):
-            if self.remove[idx]['type'] == 'Text':
+            if self.remove[idx]["type"] == "Text":
                 self.remove.pop(idx)
         for idx in range(len(self.insert) - 1, -1, -1):
-            if self.insert[idx]['type'] == 'Text':
+            if self.insert[idx]["type"] == "Text":
                 self.insert.pop(idx)
         for idx in range(len(self.change) - 1, -1, -1):
-            if self.change[idx]['prev']['type'] == 'Text':
+            if self.change[idx]["prev"]["type"] == "Text":
                 self.change.pop(idx)
 
         # add in section-level text changes
         for c in changes:
-            if 'prev' in c and 'curr' in c:
+            if "prev" in c and "curr" in c:
                 self.change.append(c)
-            elif 'prev' in c:
-                self.remove.append(c['prev'])
-            elif 'curr' in c:
-                self.insert.append(c['curr'])
+            elif "prev" in c:
+                self.remove.append(c["prev"])
+            elif "curr" in c:
+                self.insert.append(c["curr"])

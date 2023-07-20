@@ -7,13 +7,31 @@ from mwconstants.constants.c_media import MEDIA_EXTENSIONS
 # horizontal rule and line break (hr is not really text formatting but close enough)
 # pre and nowiki are for mono-spaced text (I leave out `code` because it generally contains code not text)
 # small / big / sub / sup all affect text size
-TEXT_FORMATTING_TAGS = ('b', 'i', 's', 'u', 'del', 'ins','hr', 'br','pre', 'nowiki','small',
-                         'big', 'sub', 'sup', 'font', 'blockquote', 'span', 'center')
-TABLE_ELEMENTS_TAGS = ('th', 'tr', 'td')
-LIST_TAGS = ('li', 'dt', 'dd', 'ul', 'ol', 'dl')
+TEXT_FORMATTING_TAGS = (
+    "b",
+    "i",
+    "s",
+    "u",
+    "del",
+    "ins",
+    "hr",
+    "br",
+    "pre",
+    "nowiki",
+    "small",
+    "big",
+    "sub",
+    "sup",
+    "font",
+    "blockquote",
+    "span",
+    "center",
+)
+TABLE_ELEMENTS_TAGS = ("th", "tr", "td")
+LIST_TAGS = ("li", "dt", "dd", "ul", "ol", "dl")
 
 # CJK period/question/exclamation; Bengali full-stops; Armenian verǰaket (full-stop; resembles a colon)
-NON_ENGLISH_FULL_STOPS = '。？！।॥։'
+NON_ENGLISH_FULL_STOPS = "。？！।॥։"
 # This regex identifies end-of-sentence punctuation and new-lines as sentence breaks
 # It avoids matching dots between two digits but takes into account ellipses and fullstops.
 # fuller explanation:
@@ -24,10 +42,12 @@ NON_ENGLISH_FULL_STOPS = '。？！।॥։'
 # (?<=\d.) - must be preceded by a digit containing a fullstop
 # (?!(?<=\d.)\d) -  next character must not be followed by matching dots between two digits
 # (?!\.) - next character must not be followed by fullstop
-SENTENCE_BREAKS_REGEX = r'[!?\n{0}]+|(?<!\.)\.(?!(?<=\d.)\d)(?!\.)'.format(NON_ENGLISH_FULL_STOPS)
+SENTENCE_BREAKS_REGEX = r"[!?\n{0}]+|(?<!\.)\.(?!(?<=\d.)\d)(?!\.)".format(
+    NON_ENGLISH_FULL_STOPS
+)
 
 # TODO non-English quotation marks -- e.g., German
-NON_ENGLISH_UNICODE = '''[\u0609\u060a\u060c\u060d\u061b\u061e\u061f\u066a\u066b\u066c
+NON_ENGLISH_UNICODE = """[\u0609\u060a\u060c\u060d\u061b\u061e\u061f\u066a\u066b\u066c
 \u070a\u070b\u070c\u070d\u07f7\u07f8\u07f9\u0830\u0831\u0832\u0833\u0834\u0835
 \u0836\u0837\u0838\u0839\u083a\u083b\u083c\u083d\u083e\u085e\u0964
 \u0965\u0970\u09fd\u0a76\u0af0\u0c77\u0c84\u0df4
@@ -46,19 +66,23 @@ NON_ENGLISH_UNICODE = '''[\u0609\u060a\u060c\u060d\u061b\u061e\u061f\u066a\u066b
 \u2041\u2042\u2043\u2047\u2048\u2049\u204a\u204b\u204c\u204d\u204e
 \u204f\u2050\u2051\u2053\u2055\u2056\u2057\u2058\u2059\u205a\u205b
 \u205c\u205d\u205e\u2cf9\u2cfa\u2cfb\u2cfc\u2cfe\u2cff
-\u3000-\u303f\uff0c\uff01\uff1f\uff1b\uff1a\uff08\uff3b\u3010\u09E4\u09E5]'''.replace('\n','')
+\u3000-\u303f\uff0c\uff01\uff1f\uff1b\uff1a\uff08\uff3b\u3010\u09E4\u09E5]""".replace(
+    "\n", ""
+)
 
-ENGLISH_UNICODE = '[\u00b7\u00bf]'
+ENGLISH_UNICODE = "[\u00b7\u00bf]"
 
 # build regex that checks for all media extensions
-EXTEN_REGEX = ('(' + '|'.join([e + r'\b' for e in MEDIA_EXTENSIONS]) + ')').replace('.', r'\.')
-# join in the extension regex with one that requiries at least one alphanumeric and/or a few special characters before it
-EXTEN_PATTERN = re.compile(fr'([\w ,().-]+){EXTEN_REGEX}', flags=re.UNICODE)
+EXTEN_REGEX = ("(" + "|".join([e + r"\b" for e in MEDIA_EXTENSIONS]) + ")").replace(
+    ".", r"\."
+)
+# join in the extension regex with one that requires at least one alphanumeric and/or special characters before it
+EXTEN_PATTERN = re.compile(rf"([\w ,().-]+){EXTEN_REGEX}", flags=re.UNICODE)
 
-MEDIA_PREFIXES = ['File', 'Image', 'Media']
-CAT_PREFIXES = ['Category']
+MEDIA_PREFIXES = ["File", "Image", "Media"]
+CAT_PREFIXES = ["Category"]
 
-# Source: for each Wikipedia language code (example shown for "ab"), aliases for namespaces -2 and 6 accessed via this API call:
+# Source: for each Wikipedia language code (ex. shown for "ab"), aliases for namespaces 6 accessed via this API call:
 # https://ab.wikipedia.org/w/api.php?action=query&meta=siteinfo&siprop=namespacealiases|namespaces&format=json&formatversion=2
 # Last accessed: 21 December 2021
 MEDIA_ALIASES = {
@@ -269,7 +293,16 @@ MEDIA_ALIASES = {
     "sk": ["Súbor", "Obrázok", "Médiá"],
     "sl": ["Slika", "Datoteka"],
     "sq": ["Figura", "Skeda"],
-    "sr": ["Датотека", "Medij", "Slika", "Медија", "Datoteka", "Медиј", "Medija", "Слика"],
+    "sr": [
+        "Датотека",
+        "Medij",
+        "Slika",
+        "Медија",
+        "Datoteka",
+        "Медиј",
+        "Medija",
+        "Слика",
+    ],
     "srn": ["Afbeelding", "Gefre"],
     "stq": ["Bielde", "Bild"],
     "su": ["Média", "Gambar"],
@@ -316,7 +349,7 @@ MEDIA_ALIASES = {
     "zh-yue": ["檔", "档", "文件", "图", "媒體", "圖", "档案", "图像", "圖像", "媒体", "檔案"],
 }
 
-# Source: for each Wikipedia language code (example shown for "ab"), aliases for namespace 14 accessed via this API call:
+# Source: for each Wikipedia language code (ex. shown for "ab"), aliases for namespace 14 accessed via this API call:
 # https://ab.wikipedia.org/w/api.php?action=query&meta=siteinfo&siprop=namespacealiases|namespaces&format=json&formatversion=2
 # Last accessed: 21 December 2021
 CAT_ALIASES = {
@@ -441,7 +474,15 @@ CAT_ALIASES = {
     "koi": ["Категория"],
     "krc": ["Категория"],
     "ks": ["زٲژ"],
-    "ksh": ["Saachjropp", "Saachjrop", "Katejori", "Kategorie", "Saachjrupp", "Kattejori", "Sachjrop"],
+    "ksh": [
+        "Saachjropp",
+        "Saachjrop",
+        "Katejori",
+        "Kategorie",
+        "Saachjrupp",
+        "Kattejori",
+        "Sachjrop",
+    ],
     "ku": ["Kategorî", "پۆل"],
     "kv": ["Категория"],
     "kw": ["Class", "Klass"],
