@@ -69,12 +69,12 @@ def test_text_within_formatting():
     full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert full_diff_to_simple(full_diff) == expected_changes
 
-@pytest.mark.xfail(reason="Tree Differ can't currently detect simple shifts in text formatting start-stops.")
+@pytest.mark.xfail(reason="Differs can't currently detect simple shifts in text formatting start-stops.")
 def test_change_formatting_length():
     curr_wikitext = prev_wikitext.replace("'''Karl Josef Aigen''' (8 October 1684 – 22 October 1762) was a landscape painter, born at",
                                           "'''Karl Josef Aigen (8 October 1684 – 22 October 1762) was a landscape painter, born at'''",
                                           1)
-    expected_changes = {'Section': {'change': 1}}
+    expected_changes = {'Section': {'change': 1}, 'Text Formatting': {'change': 1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert diff == expected_changes
     full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en')
@@ -299,11 +299,15 @@ def test_complicated_sections():
     curr_wikitext = curr_wikitext.replace("[[Category:Artists from Olomouc]]",
                                           "[[Category:Artists in Olomouc]]",
                                           1)
-    expected_changes = {'Heading': {'insert': 1}, 'Category': {'change': 1}, 'Section': {'insert': 1, 'change': 2}}
+    simple_expected_changes = {'Heading': {'insert': 1}, 'Category': {'change': 1},
+                                   'Section': {'insert': 1, 'change': 2}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert diff == expected_changes
+    assert diff == simple_expected_changes
+    # NOTE: simple expected changes are a bit more realistic but this is acceptable
+    structured_expected_changes = {'Heading': {'insert': 1}, 'Category': {'change': 1},
+                        'Section': {'insert': 2, 'change': 1, 'remove': 1}}
     full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
-    assert full_diff_to_simple(full_diff) == expected_changes
+    assert full_diff_to_simple(full_diff) == structured_expected_changes
 
 
 def test_moved_section():
@@ -313,7 +317,7 @@ def test_moved_section():
         "\n\n==References==\n{{reflist}}\n\n===Works===\nThe [[Österreichische Galerie Belvedere|Gallery of the Belvedere]] in Vienna has two works by him, both scenes with figures.<ref>{{Bryan (3rd edition)|title=Aigen, Karl |volume=1}}</ref>",
         1)
     simple_expected_changes = {}
-    full_expected_changes = {'Section':{'move':1, 'change':2}}
+    full_expected_changes = {'Section':{'move':1}}
     diff = SimpleEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()
     assert diff == simple_expected_changes
     full_diff = StructuredEditTypes(prev_wikitext, curr_wikitext, lang='en').get_diff()

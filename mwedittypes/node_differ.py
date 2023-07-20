@@ -272,8 +272,8 @@ def get_diff_count(result, lang='en'):
     """
     node_edits = []
     text_edits = []
+    section_edits = []
     context = []
-    section_titles = set()
     prev_text = []
     curr_text = []
 
@@ -292,12 +292,13 @@ def get_diff_count(result, lang='en'):
                 continue
             else:
                 tf_removes.add(text)
-        section_titles.add(r['section'])
         # if node is text, just check whether there's anything and retain for later
         # because all the text is processed at once at the end
         if et == 'Text' and text:
             prev_text.append(text)
         # non-text node: verify/fine-tune the edit type and add to results dictionary
+        elif et == 'Section':
+            section_edits.append({'edittype':'remove', 'section':r['section']})
         else:
             name, changes = get_node_diff(node_type=et, prev_wikitext=text, curr_wikitext='', lang=lang)
             node_edits.append(NodeEdit(et, 'remove', r['section'], name, changes))
@@ -311,9 +312,10 @@ def get_diff_count(result, lang='en'):
                 continue
             else:
                 tf_inserts.add(text)
-        section_titles.add(i['section'])
         if et == 'Text' and text:
             curr_text.append(text)
+        elif et == 'Section':
+            section_edits.append({'edittype': 'insert', 'section': i['section']})
         else:
             name, changes = get_node_diff(node_type=et, prev_wikitext='', curr_wikitext=text, lang=lang)
             node_edits.append(NodeEdit(et, 'insert', i['section'], name, changes))
@@ -328,11 +330,11 @@ def get_diff_count(result, lang='en'):
                 continue
             else:
                 tf_changes.add(ptext)
-        section_titles.add(c['curr']['section'])
-        section_titles.add(c['prev']['section'])
         if et == 'Text' and ptext != ctext:
             prev_text.append(ptext)
             curr_text.append(ctext)
+        elif et == 'Section':
+            section_edits.append({'edittype': 'change', 'section': c['prev']['section']})
         else:
             name, changes = get_node_diff(node_type=et, prev_wikitext=ptext, curr_wikitext=ctext, lang=lang)
             node_edits.append(NodeEdit(et, 'change', c['prev']['section'], name, changes))
@@ -347,10 +349,11 @@ def get_diff_count(result, lang='en'):
                 continue
             else:
                 tf_moves.add(ptext)
-        section_titles.add(m['curr']['section'])
-        section_titles.add(m['prev']['section'])
-        name, changes = get_node_diff(node_type=et, prev_wikitext=ptext, curr_wikitext=ctext, lang=lang)
-        node_edits.append(NodeEdit(et, 'move', m['prev']['section'], name, changes))
+        if et == 'Section':
+            section_edits.append({'edittype': 'move', 'section': m['prev']['section']})
+        else:
+            name, changes = get_node_diff(node_type=et, prev_wikitext=ptext, curr_wikitext=ctext, lang=lang)
+            node_edits.append(NodeEdit(et, 'move', m['prev']['section'], name, changes))
 
     # give raw insert/remove counts
     # changes can be assumed to be overlap between insert+remove -- e.g., 5 insert and 3 remove -> 3 change, 2 insert
@@ -365,16 +368,17 @@ def get_diff_count(result, lang='en'):
                     elif et_count < 0:
                         text_edits.append(TextEdit(text_subcat, 'remove', txt, abs(et_count)))
 
-    # identify how many sections have been edited based on a few heuristics
-    if section_titles:
-        sec_remove = sum([1 for n in node_edits if n.type == 'Heading' and n.edittype == 'remove']) + int('curr-no-content' in result)
-        sec_insert = sum([1 for n in node_edits if n.type == 'Heading' and n.edittype == 'insert']) + int('prev-no-content' in result)
-        sec_change = len(section_titles) - sec_remove - sec_insert
-        if sec_remove:
-            context.append(Context('Section', 'remove', sec_remove))
-        if sec_insert:
-            context.append(Context('Section', 'insert', sec_insert))
-        if sec_change:
-            context.append(Context('Section', 'change', sec_change))
+    sec_remove = sum([1 for n in section_edits if n['edittype'] == 'remove'])
+    sec_insert = sum([1 for n in section_edits if n['edittype'] == 'insert'])
+    sec_move = sum([1 for n in section_edits if n['edittype'] == 'move'])
+    sec_change = sum([1 for n in section_edits if n['edittype'] == 'change'])
+    if sec_remove:
+        context.append(Context('Section', 'remove', sec_remove))
+    if sec_insert:
+        context.append(Context('Section', 'insert', sec_insert))
+    if sec_change:
+        context.append(Context('Section', 'change', sec_change))
+    if sec_move:
+        context.append(Context('Section', 'move', sec_move))
 
     return {'node-edits': node_edits, 'text-edits': text_edits, 'context': context}
