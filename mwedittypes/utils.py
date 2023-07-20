@@ -91,7 +91,7 @@ def extract_text(mwnode, lang='en'):
         return mwnode.contents.strip_code(collapse=False)
     elif ntype == 'Text Formatting':
         return ''.join(extract_text(mwn) for mwn in mwnode.contents.nodes)
-    # Heading, Template, Comment, Argument, Category, Media, References, URLs without display text
+    # Article, Section, Heading, Template, Comment, Argument, Category, Media, References, URLs without display text
     # Tags not listed here (div, gallery, etc.) that almost never have true text content and can be super messy
     # Table elements (they duplicate the text if included)
     else:

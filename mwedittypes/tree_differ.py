@@ -15,12 +15,6 @@ def get_diff(prev_wikitext, curr_wikitext, lang='en', timeout=False):
     d = Differ(prev_tree, curr_tree, timeout=timeout)
     diff = d.get_corresponding_nodes()
     result = diff.post_process(prev_tree.secname_to_text, curr_tree.secname_to_text, lang=lang)
-    # this helps the node differ know that the lede is also a new section
-    # otherwise depends on headings to track changes to sections
-    if not prev_wikitext:
-        result['prev-no-content'] = True
-    if not curr_wikitext:
-        result['curr-no-content'] = True
     return result
 
 
@@ -137,7 +131,8 @@ class WikitextTree:
         self.lang = lang
         self.root = OrderedNode('root', ntype="Article")
         self.secname_to_text = {}
-        self.wikitext_to_tree(wikitext)
+        if wikitext:
+            self.wikitext_to_tree(wikitext)
         self.key_roots = None
 
     def wikitext_to_tree(self, wikitext):
@@ -303,12 +298,6 @@ class Differ:
             return self.nodetype_chg_cost
         elif n1.content_hash == n2.content_hash:
             return 0
-        # if both sections, assert no cost (changes will be captured by headings)
-        # except we want to detect moves of sections
-        elif n1.ntype == 'Section':
-            if not n1.children and not n2.children:
-                return self.chg_cost
-            return 0
         # otherwise, same node types and not the same, then change cost
         else:
             return self.chg_cost
@@ -399,11 +388,7 @@ class Differ:
                         transactions[i][j] = cc
 
     def get_corresponding_nodes(self):
-        """Explain transactions.
-
-        Skip 'Section' operations as they aren't real nodes and
-        any changes to them will be captured via Headings etc.
-        """
+        """Explain transactions."""
         if self.transactions:
             transactions = self.transactions[len(self.t1) - 1][len(self.t2) - 1]
             remove = []
@@ -412,18 +397,14 @@ class Differ:
             for i in range(0, len(transactions)):
                 if transactions[i][0] is None:
                     ins_node = self.t2[transactions[i][1]]
-                    # this second clause allows us to later detect moved sections
-                    if ins_node.ntype != 'Section' or not ins_node.children:
-                        insert.append(ins_node)
+                    insert.append(ins_node)
                 elif transactions[i][1] is None:
                     rem_node = self.t1[transactions[i][0]]
-                    if rem_node.ntype != 'Section' or not rem_node.children:
-                        remove.append(rem_node)
+                    remove.append(rem_node)
                 else:
                     prev_node = self.t1[transactions[i][0]]
                     curr_node = self.t2[transactions[i][1]]
-                    if prev_node.ntype != 'Section' or not prev_node.children:
-                        change.append((prev_node, curr_node))
+                    change.append((prev_node, curr_node))
             diff = {'remove': remove, 'insert': insert, 'change': change}
             self.detect_moves(diff)
             return Diff(nodes_removed=diff['remove'], nodes_inserted=diff['insert'],
@@ -565,7 +546,7 @@ class Diff:
         removed = []
         # removed sections map to null in current; inserted sections map to null in previous
         for n in self.remove:
-            if n['type'] == 'Heading':
+            if n['type'] == 'Section':
                 for i, s in enumerate(prev):
                     if s == n['section']:
                         removed.append(i)
@@ -573,9 +554,10 @@ class Diff:
         for idx in sorted(removed, reverse=True):
             p_to_c[prev[idx]] = None
             prev.pop(idx)
+
         inserted = []
         for n in self.insert:
-            if n['type'] == 'Heading':
+            if n['type'] == 'Section':
                 for i, s in enumerate(curr):
                     if s == n['section']:
                         inserted.append(i)
@@ -584,12 +566,13 @@ class Diff:
             c_to_p[curr[idx]] = None
             curr.pop(idx)
 
+
         # changes happen in place so don't effect structure of doc and can be ignored
         # for moved sections, reorder mapping so they are aligned again for dumping
         for c in self.move:
             pn = c['prev']
             cn = c['curr']
-            if pn['type'] == 'Heading':
+            if pn['type'] == 'Section':
                 prev_idx = None
                 curr_idx = None
                 for i, s in enumerate(prev):
