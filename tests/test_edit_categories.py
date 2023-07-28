@@ -1,11 +1,13 @@
-from context import prev_wikitext, EditCategories, StructuredEditTypes
+from context import prev_wikitext, EditCategories, StructuredEditTypes, Tokenizer
+
+enTokenizer = Tokenizer(lang='en')
 
 # Text tests
 def test_text_change():
     curr_wikitext = prev_wikitext.replace('Aigen was born in Olomouc on 8 October 1685, the son of a goldsmith.',
                                           'Aigen-Abe was born in Olomouc on 9 October 1685, the daughter of a goldsmith.',
                                           1)
-    size, difficulty, text_change, edit_categories = EditCategories().get_edit_categories(prev_wikitext, curr_wikitext, lang='en')
+    size, difficulty, text_change, edit_categories = EditCategories().get_edit_categories(prev_wikitext, curr_wikitext, lang='en', tokenizer=enTokenizer)
     expected_size = 'Small'
     expected_difficulty = 'Easy'
     expected_text_change = True
@@ -23,7 +25,7 @@ def test_text_within_formatting():
                                           "''the son of a goldsmith<ref>A reference: https://example.com/url-string</ref>''",
                                           1)
     size, difficulty, text_change, edit_categories = EditCategories().get_edit_categories(
-        prev_wikitext, curr_wikitext,lang='en')
+        prev_wikitext, curr_wikitext, lang='en', tokenizer=enTokenizer)
     expected_size = 'Small'
     expected_difficulty = 'Hard'
     expected_text_change = False
@@ -39,7 +41,7 @@ def test_large_unnested_change():
                                           "Aigen was born" + ' [[link]]' * 500,
                                           1)
     size, difficulty, text_change, edit_categories = EditCategories().get_edit_categories(
-        prev_wikitext, curr_wikitext, lang='en')
+        prev_wikitext, curr_wikitext, lang='en', tokenizer=enTokenizer)
     expected_size = 'Large'
     expected_difficulty = 'Medium-Hard'
     expected_text_change = True
@@ -56,7 +58,7 @@ def test_insert_category():
                                           '[[Category:Artists from Olomouc]]\n[[Category:TEST CATEGORY]]',
                                           1)
     size, difficulty, text_change, edit_categories = EditCategories().get_edit_categories(
-        prev_wikitext, curr_wikitext, lang='en')
+        prev_wikitext, curr_wikitext, lang='en', tokenizer=enTokenizer)
     expected_size = 'Small'
     expected_difficulty = 'Medium-Hard'
     expected_text_change = False
@@ -72,7 +74,7 @@ def test_change_template():
                                           '{{Use dmy dates|date=April 2018}}\n',
                                           1)
     size, difficulty, text_change, edit_categories = EditCategories().get_edit_categories(
-        prev_wikitext, curr_wikitext, lang='en')
+        prev_wikitext, curr_wikitext, lang='en', tokenizer=enTokenizer)
     expected_size = 'Small'
     expected_difficulty = 'Hard'
     expected_text_change = False
@@ -89,7 +91,7 @@ def test_unbracketed_media():
                                           '===Works===\n<gallery>\nFile:Carl Aigen Fischmarkt.jpg|thumb|Caption\n</gallery>',
                                           1)
     size, difficulty, text_change, edit_categories = EditCategories().get_edit_categories(
-        prev_wikitext, curr_wikitext, lang='en')
+        prev_wikitext, curr_wikitext, lang='en', tokenizer=enTokenizer)
     expected_size = 'Small'
     expected_difficulty = 'Hard'
     expected_text_change = False

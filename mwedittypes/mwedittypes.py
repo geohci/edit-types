@@ -92,7 +92,7 @@ class EditCategories:
             return expanded
 
     def get_edit_categories(
-        self, prev_wikitext="", curr_wikitext="", lang="en", gen_categories=True
+        self, prev_wikitext="", curr_wikitext="", lang="en", tokenizer=None
     ):
         """
         Map a revision's atomic edit types to a higher-level taxonomy of edit categories:
@@ -104,12 +104,12 @@ class EditCategories:
               edit categories are determined based on the additional details.
         """
         simple_et = SimpleEditTypes(
-            prev_wikitext=prev_wikitext, curr_wikitext=curr_wikitext, lang=lang
+            prev_wikitext=prev_wikitext, curr_wikitext=curr_wikitext, lang=lang, tokenizer=tokenizer
         ).get_diff()
         edit_categories = self.simple_et_to_higher_level(simple_et)
         if self.needs_structured(simple_et):
             full_et = StructuredEditTypes(
-                prev_wikitext=prev_wikitext, curr_wikitext=curr_wikitext, lang=lang
+                prev_wikitext=prev_wikitext, curr_wikitext=curr_wikitext, lang=lang, tokenizer=tokenizer
             ).get_diff()
             expanded_full_et = self.details_to_dict(full_et)
             for cat, cnt in self.full_et_to_higher_level(expanded_full_et).items():
