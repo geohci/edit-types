@@ -108,9 +108,10 @@ class Tokenizer:
         }
 
 
-def parse_change_text(prev_wikitext="", curr_wikitext="", lang="en", summarize=True):
+def parse_change_text(prev_wikitext="", curr_wikitext="", lang="en", summarize=True, tokenizer=None):
     # Initialize tokenizer class
-    tokenizer = Tokenizer(lang=lang)
+    if tokenizer is None:
+        tokenizer = Tokenizer(lang=lang)
 
     prev_tokenizer = tokenizer.tokenize_and_get_occurrence(prev_wikitext)
     curr_tokenizer = tokenizer.tokenize_and_get_occurrence(curr_wikitext)

@@ -321,7 +321,7 @@ def get_node_diff(  # noqa: C901
     return name, changes
 
 
-def get_diff_count(result, lang="en"):  # noqa: C901
+def get_diff_count(result, lang="en", tokenizer=None):  # noqa: C901
     """Prepares more complete edit type summary based on tree diff result.
 
     Parameters
@@ -445,7 +445,7 @@ def get_diff_count(result, lang="en"):  # noqa: C901
     # but would require more work to align well enough to know where words were likely changed vs. inserted/removed
     if prev_text or curr_text:
         is_text_change_found = parse_change_text(
-            "".join(prev_text), "".join(curr_text), lang=lang, summarize=False
+            "".join(prev_text), "".join(curr_text), lang=lang, summarize=False, tokenizer=tokenizer
         )
         if is_text_change_found:
             for text_subcat, text_et in is_text_change_found.items():

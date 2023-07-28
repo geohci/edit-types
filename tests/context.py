@@ -4,7 +4,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from mwedittypes.mwedittypes import EditCategories, SimpleEditTypes, StructuredEditTypes
-from mwedittypes.tokenizer import parse_change_text
+from mwedittypes.tokenizer import parse_change_text, Tokenizer
 from mwedittypes.utils import full_diff_to_simple
 
 # Basic wikitext to play with that has most of the things we're interested in (image, categories, templates, etc.)

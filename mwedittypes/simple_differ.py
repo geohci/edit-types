@@ -13,12 +13,12 @@ from mwedittypes.utils import (
 
 
 # equivalent of main function
-def get_diff(prev_wikitext, curr_wikitext, lang="en"):
+def get_diff(prev_wikitext, curr_wikitext, lang="en", tokenizer=None):
     """Run through full process of getting diff between two wikitext revisions."""
     prev_tree = WikitextBag(wikitext=prev_wikitext, lang=lang)
     curr_tree = WikitextBag(wikitext=curr_wikitext, lang=lang)
     d = Differ(prev_tree, curr_tree)
-    result = d.count_actions()
+    result = d.count_actions(tokenizer)
     return result
 
 
@@ -240,7 +240,7 @@ class Differ:
                     t2n[n_hash] = t2n[n_hash][: abs(diff)]
         # no need to loop through t2n because what's left in it doesn't have any matches
 
-    def count_actions(self):
+    def count_actions(self, tokenizer=None):
         """Explain differences."""
         edit_types = {}
         prev_text_sections = set()
@@ -282,7 +282,7 @@ class Differ:
         for s in curr_text_sections:
             curr_text += wikitext_to_plaintext(self.t2.secname_to_text[s], lang=lang)
 
-        text_changes = parse_change_text(prev_text, curr_text, lang=lang)
+        text_changes = parse_change_text(prev_text, curr_text, lang=lang, tokenizer=tokenizer)
         edit_types.update(text_changes)
 
         return edit_types
