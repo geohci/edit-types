@@ -31,7 +31,13 @@ setup(
     long_description_content_type="text/markdown",
     long_description=long_description,
     packages=find_packages(),
-    install_requires=["mwparserfromhell", "anytree", "mwconstants", "mwtokenizer", "regex"],
+    install_requires=[
+        "mwparserfromhell",
+        "anytree",
+        "mwconstants",
+        "mwtokenizer",
+        "regex",
+    ],
     keywords=[
         "python",
         "wikipedia",

@@ -1,6 +1,6 @@
 import regex
-
 from mwtokenizer.tokenizer import Tokenizer as MWTokenizer
+
 
 class Tokenizer:
     def __init__(self, lang="en"):
@@ -18,7 +18,7 @@ class Tokenizer:
         This won't exactly match what you get from tokenize_and_get_occurrence which will
         include punctuation that is a part of words (hyphens, abbreviations, etc.) in the word category.
         """
-        return regex.findall(r'[^\w\s]', text)
+        return regex.findall(r"[^\w\s]", text)
 
     def get_whitespace(self, text):
         """Get all whitespace characters.
@@ -37,7 +37,7 @@ class Tokenizer:
         """
         word_list = []
         for tok in self.tokenizer.word_tokenize(text, use_abbreviation=True):
-            if regex.search(r'\w', tok):
+            if regex.search(r"\w", tok):
                 word_list.append(tok)
         return word_list
 
@@ -73,14 +73,16 @@ class Tokenizer:
         punctuation = {}
         whitespaces = {}
         for i, para in enumerate(regex.split(r"\n{2}", text)):
-            if i != 0:  # we know there are paragraph breaks for total paragraphs - 1 so skip the first one
-                whitespaces['\n'] = whitespaces.get('\n', 0) + 2
+            if (
+                i != 0
+            ):  # we know there are paragraph breaks for total paragraphs - 1 so skip the first one
+                whitespaces["\n"] = whitespaces.get("\n", 0) + 2
             sentences_found = False
             for sent in self.tokenizer.sentence_tokenize(para, use_abbreviation=True):
                 num_words = 0
                 for tok in self.tokenizer.word_tokenize(sent, use_abbreviation=True):
                     if tok.strip():
-                        if regex.search(r'\w', tok):
+                        if regex.search(r"\w", tok):
                             words[tok] = words.get(tok, 0) + 1
                             num_words += 1
                         else:
