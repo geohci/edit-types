@@ -1,6 +1,6 @@
 from mwedittypes.node_differ import get_diff_count
 from mwedittypes.simple_differ import get_diff as simple_get_diff
-from mwedittypes.tree_differ import get_diff
+from mwedittypes.tree_differ import get_diff as structured_get_diff
 
 
 class StructuredEditTypes:
@@ -15,7 +15,7 @@ class StructuredEditTypes:
         self.actions = None
 
     def get_diff(self):
-        self.tree_diff = get_diff(
+        self.tree_diff = structured_get_diff(
             self.prev_wikitext, self.curr_wikitext, lang=self.lang, timeout=self.timeout
         )
         self.actions = get_diff_count(self.tree_diff, lang=self.lang)

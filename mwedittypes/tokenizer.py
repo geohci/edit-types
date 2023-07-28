@@ -1,120 +1,114 @@
-import re
-import string
-from collections import Counter
+import regex
 
-from mwconstants import NON_WHITESPACE_LANGUAGES
-
-from mwedittypes.constants import (
-    ENGLISH_UNICODE,
-    NON_ENGLISH_UNICODE,
-    SENTENCE_BREAKS_REGEX,
-)
-
+from mwtokenizer.tokenizer import Tokenizer as MWTokenizer
 
 class Tokenizer:
-    def __init__(self, english_unicode, non_english_unicode, lang="en"):
-        self.english_punc_regex = r"[{0}]".format(re.escape(string.punctuation))
-        self.english_unicode = english_unicode
-        self.non_english_unicode = non_english_unicode
+    def __init__(self, lang="en"):
         self.lang = lang
+        self.tokenizer = MWTokenizer(language_code=lang)
 
     def get_punctuations(self, text):
-        # get ellipses
-        ellipses = re.findall(r"\.{3,}", text)
-        text = re.sub(r"\.{3,}", "", text)
+        """Get all punctuation characters.
 
-        # get other punctuation
-        english_punc_regex = re.findall(self.english_punc_regex, text)
+        Not used directly but left in as an available method.
+        Note: this is broader than the Punctuation category characters per Unicode
+        and also includes e.g., math symbols.
+        See: https://en.wikipedia.org/wiki/Unicode_character_property#General_Category
 
-        english_unicode_pattern = re.compile(self.english_unicode, re.UNICODE)
-        english_unicode_regex = re.findall(english_unicode_pattern, text)
-
-        non_english_unicode_pattern = re.compile(self.non_english_unicode, re.UNICODE)
-        non_english_punc_regex = re.findall(non_english_unicode_pattern, text)
-
-        return (
-            ellipses
-            + english_punc_regex
-            + english_unicode_regex
-            + non_english_punc_regex
-        )
+        This won't exactly match what you get from tokenize_and_get_occurrence which will
+        include punctuation that is a part of words (hyphens, abbreviations, etc.) in the word category.
+        """
+        return regex.findall(r'[^\w\s]', text)
 
     def get_whitespace(self, text):
-        # Get whitespaces. Detects newlines, return characters as well as spaces as whitespaces.
-        whitespace = re.findall(r"[\s]", text)
-        return whitespace
+        """Get all whitespace characters.
+
+        Not used directly but left in as an available method.
+        """
+        return regex.findall(r"[\s]", text)
 
     def get_words(self, text):
-        # This extracts words inclusive of those with hyphens and apostrophes
-        if self.lang in NON_WHITESPACE_LANGUAGES:
-            word_list = re.findall(r"[\w]", text)
+        """Get all words.
 
-        else:
-            # Get words with optionally hyphens and apostrophe:
-            # \b - word breaks at start and end of word
-            # [\w...]+ - matches 1 or more alphanumeric characters
-            # \w captures most characters with some exceptions, especially for languages with spacing characters
-            # \u0980-\u09FF represents Bengali
-            # \u0901-\u0963 represents Devanagari (Hindi, Marathi, etc.)
-            # [-']? allows for hyphen/apostrophes within word
-            # ((?:...)+) capturing group (extract words) made up of 1+ non-capturing sequences of alphanumeric +
-            # hyphen/apostrophe. this allows for many-time-hyphenated words and the non-capturing wrapped in capturing
-            # is to only gather the entire word (otherwise capturing groups only capture the last instance)
-            word_list = re.findall(
-                r"\b((?:[\w\u0980-\u09FF\u0901-\u0963]+[-']?)+)\b", text
-            )
+        Not used directly but left in as an available method.
+        This is not fully exclusive of get_whitespace and get_punctuation. Words
+        will never include whitespace but can include internal punctuation like
+        hyphens and terminating punctuation if the word is an abbreviation.
+        """
+        word_list = []
+        for tok in self.tokenizer.word_tokenize(text, use_abbreviation=True):
+            if regex.search(r'\w', tok):
+                word_list.append(tok)
         return word_list
 
     def get_sentences(self, text):
-        # minimum sentence size is two words, otherwise contributes to words etc. but not sentences
-        # we ignored leading/trailing whitespace differences on sentences when comparing as those aren't really changes
-        # the whitespace differences are still captured by the whitespace counts
-        min_sentence_size = 2
-        sentences = re.split(SENTENCE_BREAKS_REGEX, text)
+        """Get all sentences.
+
+        Not used directly but left in as an available method.
+        """
+        min_sentence_size = 5
         sentences = [
-            s.strip() for s in sentences if len(self.get_words(s)) >= min_sentence_size
+            s.strip()
+            for s in self.tokenizer.sentence_tokenize(text, use_abbreviation=True)
+            if len(s.strip()) >= min_sentence_size
         ]
         return sentences
 
     def get_paragraphs(self, text):
-        if text != "":
-            paragraphs = [
-                p.strip()
-                for p in re.split(r"\n{2}", text)
-                if len(self.get_words(p)) > 0
-            ]
-            return paragraphs
-        return []
+        """Get all paragraphs.
+
+        Not used directly but left in as an available method.
+        """
+        paragraphs = [
+            p.strip()
+            for p in regex.split(r"\n{2}", text)
+            if len(p.strip()) > 5  # basic character minimum for paragraphs
+        ]
+        return paragraphs
 
     def tokenize_and_get_occurrence(self, text):
-        whitespaces = self.get_whitespace(text)
-        punctuation = self.get_punctuations(text)
-        words = self.get_words(text)
-        sentences = self.get_sentences(text)
-        paragraphs = self.get_paragraphs(text)
+        paragraphs = {}
+        sentences = {}
+        words = {}
+        punctuation = {}
+        whitespaces = {}
+        for i, para in enumerate(regex.split(r"\n{2}", text)):
+            if i != 0:  # we know there are paragraph breaks for total paragraphs - 1 so skip the first one
+                whitespaces['\n'] = whitespaces.get('\n', 0) + 2
+            sentences_found = False
+            for sent in self.tokenizer.sentence_tokenize(para, use_abbreviation=True):
+                num_words = 0
+                for tok in self.tokenizer.word_tokenize(sent, use_abbreviation=True):
+                    if tok.strip():
+                        if regex.search(r'\w', tok):
+                            words[tok] = words.get(tok, 0) + 1
+                            num_words += 1
+                        else:
+                            for p in tok:
+                                punctuation[p] = punctuation.get(p, 0) + 1
+                    else:
+                        for w in tok:
+                            whitespaces[w] = whitespaces.get(w, 0) + 1
+                if num_words >= 2:
+                    sent = sent.strip()
+                    sentences[sent] = sentences.get(sent, 0) + 1
+                    sentences_found = True
+            if sentences_found:
+                para = para.strip()
+                paragraphs[para] = paragraphs.get(para, 0) + 1
 
-        whitespace_occurrence = Counter(whitespaces)
-        punctuation_occurrence = Counter(punctuation)
-        words_occurrence = Counter(words)
-        sentences_occurrence = Counter(sentences)
-        paragraphs_occurrence = Counter(paragraphs)
-
-        if self.lang in NON_WHITESPACE_LANGUAGES:
-            word_key = "Character"
-        else:
-            word_key = "Word"
         return {
-            "Whitespace": dict(whitespace_occurrence),
-            "Punctuation": dict(punctuation_occurrence),
-            word_key: dict(words_occurrence),
-            "Sentence": dict(sentences_occurrence),
-            "Paragraph": dict(paragraphs_occurrence),
+            "Whitespace": whitespaces,
+            "Punctuation": punctuation,
+            "Word": words,
+            "Sentence": sentences,
+            "Paragraph": paragraphs,
         }
 
 
 def parse_change_text(prev_wikitext="", curr_wikitext="", lang="en", summarize=True):
     # Initialize tokenizer class
-    tokenizer = Tokenizer(ENGLISH_UNICODE, NON_ENGLISH_UNICODE, lang=lang)
+    tokenizer = Tokenizer(lang=lang)
 
     prev_tokenizer = tokenizer.tokenize_and_get_occurrence(prev_wikitext)
     curr_tokenizer = tokenizer.tokenize_and_get_occurrence(curr_wikitext)
