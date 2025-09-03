@@ -1,4 +1,5 @@
-[![Build status](https://github.com/geohci/edit-types/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/geohci/edit-types/actions/workflows/test.yml)
+> [!IMPORTANT]
+> This repository is now hosted on Gitlab: https://gitlab.wikimedia.org/repos/research/edit-types
 
 # mwedittypes
 Edit diffs and type detection for Wikipedia.
